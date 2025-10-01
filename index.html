@@ -469,7 +469,7 @@
   }
 
   function letter(i){ return ['A','B','C','D'][i] || '?'; }
-  function escapeHtml(s){ return s.replace(/[&<>"]+/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+  function escapeHtml(s){ return s.replace(/[&<>"]+/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",""":"&quot;"}[c])); }
 
   // Timers repaint
   setInterval(()=>{
