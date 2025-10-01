@@ -24,7 +24,7 @@
   </style>
 </head>
 <body class="warrior-bg ancient-pattern min-h-screen">
-  <!-- LOGIN (Leaderboard opened via button modal) -->
+  <!-- LOGIN -->
   <div id="loginScreen" class="min-h-screen p-4 flex items-start justify-center">
     <div class="w-full max-w-xl">
       <div class="bg-gradient-to-br from-amber-100 to-orange-100 rounded-3xl shadow-2xl p-8 w-full border-4 border-amber-600">
@@ -60,7 +60,7 @@
     </div>
   </div>
 
-  <!-- Leaderboard Modal (compact list + animated bar chart) -->
+  <!-- Leaderboard Modal -->
   <div id="leaderboardModal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-6">
       <div class="flex items-center justify-between mb-4">
@@ -113,6 +113,10 @@
             <button onclick="cancelSetRun()" class="bg-gray-300 hover:bg-gray-400 text-gray-900 font-bold py-2 px-3 rounded-lg">⏹ Stop</button>
             <span id="setRunStatus" class="ml-2 text-sm text-gray-600"></span>
           </div>
+
+          <p id="imageTip" class="mt-3 text-xs text-amber-700">
+            Tip: Paste a <em>direct</em> image URL ending in .png, .jpg, .jpeg, .gif, or .webp. Links like <code>https://ibb.co/…</code> are pages, not image files.
+          </p>
         </div>
 
         <!-- LIVE STATS + ADMIN LB + RESET -->
@@ -224,6 +228,7 @@
     const STORAGE_KEY = 'warriorQuizState_v8';
     const SETS_KEY = 'warriorQuizSets_v2';
     const LAST_SET_KEY = 'warriorQuizLastSetName';
+    const SETS_TABLE = 'question_sets'; // shared DB table
 
     let gameState = {
       currentUser: null,
@@ -243,7 +248,7 @@
 
     // ===== Presence (Realtime) =====
     let presenceChannel = null;
-    let presenceRoster = new Set(); // usernames currently online (from realtime)
+    let presenceRoster = new Set();
 
     function joinPresence(usernameOrViewer){
       if (presenceChannel) { try { presenceChannel.unsubscribe(); } catch {} }
@@ -375,6 +380,8 @@
     setInterval(refreshAllLeaderboards, 3000);
 
     // ===================== PARTICIPANT VIEW =====================
+    const isDirectImageUrl = (u) => /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u||'');
+
     function displayQuestionToParticipants(){
       const qa=document.getElementById('questionArea');
       const wa=document.getElementById('waitingArea');
@@ -384,7 +391,8 @@
 
       const imgWrap=document.getElementById('participantImageWrap');
       const img=document.getElementById('participantImage');
-      if(q.image_url){ imgWrap.classList.remove('hidden'); img.src=q.image_url; } else { imgWrap.classList.add('hidden'); img.src=''; }
+      if(q.image_url && isDirectImageUrl(q.image_url)){ imgWrap.classList.remove('hidden'); img.src=q.image_url; }
+      else { imgWrap.classList.add('hidden'); img.src=''; }
 
       document.getElementById('participantQuestionText').textContent=q.text + `  (Points: ${q.points})`;
       const optionsContainer=document.getElementById('optionsContainer'); optionsContainer.innerHTML='';
@@ -499,7 +507,7 @@
       renderLeaderboard('adminLeaderboard', rows);
       renderLeaderboard('participantLeaderboard', rows);
 
-      // Update chart if modal open (solid colorful bars)
+      // Update chart if modal open
       const canvas = document.getElementById('leaderboardChart');
       if(canvas && !document.getElementById('leaderboardModal').classList.contains('hidden')){
         const labels = rows.map(r=>r.name);
@@ -517,9 +525,7 @@
               borderWidth: 2,
               borderRadius: 10,
               borderColor: '#ffffff',
-              backgroundColor: [
-                '#f87171','#fb923c','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#facc15'
-              ]
+              backgroundColor: ['#f87171','#fb923c','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#facc15']
             }]
           },
           options: {
@@ -614,7 +620,7 @@
     }
     function msg(t,bad=false){ const el=document.getElementById('adminActionMsg'); if(!el) return; el.textContent=t; el.className='text-sm '+(bad?'text-red-600':'text-gray-600'); }
 
-    // ===================== SET BUILDER (Image URL only) =====================
+    // ===================== SET BUILDER (shared DB + fallback to local) =====================
     function getBlankQuestion(){
       return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' };
     }
@@ -674,35 +680,73 @@
       return { name, items };
     }
 
-    function saveCurrentSet(){
+    async function saveCurrentSet(){
       const set=collectSetFromUI();
-      const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
-      const idx=list.findIndex(s=>s.name===set.name);
-      if(idx>=0) list[idx]=set; else list.push(set);
-      localStorage.setItem(SETS_KEY, JSON.stringify(list));
-      localStorage.setItem(LAST_SET_KEY, set.name);   // remember last
-      loadSavedSetsDropdown(set.name);
-      alert('✅ Set saved!');
+      // Try DB first
+      let savedToDb = false;
+      try{
+        const { error } = await sb.from(SETS_TABLE).upsert({ name:set.name, items:set.items }).select('name').single();
+        if(!error) savedToDb = true;
+      }catch(e){}
+      if(!savedToDb){
+        // Fallback to local
+        const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
+        const idx=list.findIndex(s=>s.name===set.name);
+        if(idx>=0) list[idx]=set; else list.push(set);
+        localStorage.setItem(SETS_KEY, JSON.stringify(list));
+      }
+      localStorage.setItem(LAST_SET_KEY, set.name);
+      await loadSavedSetsDropdown(set.name);
+      alert('✅ Set saved' + (savedToDb?' to cloud.':' locally.'));
     }
 
-    function loadSavedSetsDropdown(selectedName){
-      const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
+    async function loadSavedSetsDropdown(selectedName){
+      let names = [];
+      // Try DB
+      try{
+        const { data, error } = await sb.from(SETS_TABLE).select('name').order('updated_at', { ascending:false });
+        if(!error && data){ names = data.map(x=>x.name); }
+      }catch(e){}
+      // Fallback to local if empty
+      if(!names.length){
+        const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
+        names = list.map(s=>s.name);
+      }
       const sel=document.getElementById('savedSets');
-      sel.innerHTML=list.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+      sel.innerHTML = names.map(n=>`<option value="${n}">${n}</option>`).join('');
       const last = selectedName || localStorage.getItem(LAST_SET_KEY);
-      if(last && list.some(s=>s.name===last)) sel.value=last;
+      if(last && names.includes(last)) sel.value=last;
     }
 
-    function loadSelectedSet(){
+    async function loadSelectedSet(){
       const sel=document.getElementById('savedSets');
       const name=sel.value;
-      const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
-      const set=list.find(s=>s.name===name);
+      let set = null;
+
+      // Try DB
+      try{
+        const { data, error } = await sb.from(SETS_TABLE).select('items').eq('name', name).maybeSingle();
+        if(!error && data){ set = { name, items: data.items }; }
+      }catch(e){}
+      // Fallback to local
+      if(!set){
+        const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
+        set = list.find(s=>s.name===name);
+      }
+
       if(!set){ alert('No set found'); return; }
       localStorage.setItem(LAST_SET_KEY, name);
       document.getElementById('setName').value=set.name;
       const wrap=document.getElementById('setQuestions'); wrap.innerHTML='';
       set.items.forEach(item=>addQuestionRow(item));
+
+      // Warn if any image URL isn’t direct
+      const bad = set.items.filter(i=>i.image_url && !isDirectImageUrl(i.image_url)).length;
+      if(bad) document.getElementById('imageTip').innerHTML =
+        `⚠️ ${bad} image link(s) look like pages, not images. Paste a direct image URL ending in .png/.jpg/.jpeg/.gif/.webp.`;
+      else document.getElementById('imageTip').textContent =
+        'Tip: Paste a direct image URL ending in .png, .jpg, .jpeg, .gif, or .webp.';
+
       alert('📥 Set loaded: ' + name);
     }
 
@@ -735,6 +779,11 @@
       const start = new Date();
       const ends  = new Date(start.getTime() + (item.timer||30)*1000);
 
+      // warn once for non-direct image
+      if(item.image_url && !isDirectImageUrl(item.image_url)){
+        console.warn('Image URL is not a direct image. It will be hidden:', item.image_url);
+      }
+
       const payload = {
         text:item.text,
         options:{ A:item.A, B:item.B, C:item.C, D:item.D },
@@ -756,14 +805,20 @@
 
     // ===================== RESET GAME =====================
     async function resetGame(){
-      if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and questions!")) return;
+      if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and active questions!")) return;
       try {
         await sb.from('answers').delete().neq('id', '');
         await sb.from('questions').delete().neq('id', '');
         await sb.from('score_adjustments').delete().neq('id', '');
         await sb.from('participant_flags').delete().neq('username', '');
-        gameState.participants = {};
-        initializeParticipants();
+
+        // Clear local UI scores immediately
+        document.getElementById('participantScore').textContent = '0';
+        gameState.prevRanks = {};
+        gameState.currentQuestion = null;
+        clearInterval(gameState.questionTimer);
+        updateCurrentQuestionStatus();
+
         await refreshAllLeaderboards();
         alert("✅ Game has been reset!");
       } catch (err) {
@@ -772,10 +827,9 @@
       }
     }
 
-    // ===================== GLOBAL UI HELPERS =====================
+    // ===================== GLOBAL HELPERS =====================
     function openLeaderboardModal(){
       document.getElementById('leaderboardModal').classList.remove('hidden');
-      // delay so Chart.js has dimensions; then render
       setTimeout(()=>refreshAllLeaderboards(), 200);
     }
     function closeLeaderboardModal(){ document.getElementById('leaderboardModal').classList.add('hidden'); }
@@ -788,7 +842,7 @@
       else joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
 
       if(gameState.userType){ showDashboard(gameState.userType); }
-      loadSavedSetsDropdown();                   // <-- ensures saved sets show after any login/logout
+      loadSavedSetsDropdown();      // loads shared (DB) names or falls back to local
       populateAdminSelect();
       fetchActiveQuestion(); refreshAllLeaderboards();
       window.addEventListener('beforeunload', saveState);
@@ -796,4 +850,5 @@
   </script>
 </body>
 </html>
+
 
