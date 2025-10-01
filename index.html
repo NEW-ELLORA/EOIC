@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Warrior Quiz Arena - Ancient Indian Battle (Supabase)</title>
+  <title>Warrior Quiz Arena</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <style>
@@ -19,13 +19,16 @@
     @keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity: 1; } }
     .rank-jump { animation: rankJump .6s ease-out; }
     @keyframes rankJump { 0%{transform: translateY(0)} 30%{transform: translateY(-14px)} 100%{transform: translateY(0)} }
-    .img-card { border: 3px dashed #f59e0b; }
+    .dropzone { border: 2px dashed #f59e0b; border-radius: 0.75rem; padding: 0.75rem; background: #fff7ed; }
+    .dropzone.drag { background:#fef3c7; border-color:#f59e0b; }
+    .thumb { max-height: 120px; object-fit: contain; border-radius: 0.5rem; }
+    .modal-bg { background: rgba(0,0,0,.6); }
   </style>
 </head>
 <body class="warrior-bg ancient-pattern min-h-screen">
-  <!-- LOGIN + PUBLIC LEADERBOARD -->
+  <!-- LOGIN (Leaderboard opened via button modal) -->
   <div id="loginScreen" class="min-h-screen p-4 flex items-start justify-center">
-    <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div class="w-full max-w-xl">
       <div class="bg-gradient-to-br from-amber-100 to-orange-100 rounded-3xl shadow-2xl p-8 w-full border-4 border-amber-600">
         <div class="text-center mb-8">
           <div class="text-6xl mb-4">⚔️</div>
@@ -38,7 +41,6 @@
             <label class="block text-amber-800 font-semibold mb-2">Username</label>
             <input type="text" id="username" class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 focus:border-amber-600 focus:outline-none" placeholder="Enter username"/>
           </div>
-
           <div>
             <label class="block text-amber-800 font-semibold mb-2">Password</label>
             <input type="password" id="password" class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 focus:border-amber-600 focus:outline-none" placeholder="Enter password"/>
@@ -48,6 +50,8 @@
             <button onclick="login('admin')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">🛡️ Admin</button>
             <button onclick="login('participant')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">⚔️ Warrior</button>
           </div>
+
+          <button onclick="openLeaderboardModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300">🏆 View Leaderboard</button>
         </div>
 
         <div class="mt-6 text-sm text-amber-700 bg-amber-50 p-4 rounded-xl">
@@ -55,12 +59,17 @@
           <p><strong>Warriors:</strong> warrior1-8 / battle123</p>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="bg-white/90 backdrop-blur rounded-3xl shadow-2xl p-6 w-full border-4 border-orange-300">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">🏆 Live Leaderboard</h2>
-        <div id="loginLeaderboard" class="space-y-2"></div>
-        <div class="text-xs text-gray-500 mt-3">Auto-updates when warriors answer.</div>
+  <!-- Leaderboard Modal -->
+  <div id="leaderboardModal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">🏆 Live Leaderboard</h2>
+        <button onclick="closeLeaderboardModal()" class="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300">✖</button>
       </div>
+      <div id="loginLeaderboard" class="space-y-2"></div>
     </div>
   </div>
 
@@ -71,7 +80,7 @@
         <div class="flex justify-between items-center">
           <div>
             <h1 class="text-3xl font-bold">🛡️ Admin Command Center</h1>
-            <p class="text-red-200">Build sets, set timers/points/images, and run them.</p>
+            <p class="text-red-200">Build sets, add images by drag & drop, run them.</p>
           </div>
           <button onclick="logout()" class="bg-red-900 hover:bg-red-800 px-4 py-2 rounded-lg transition-colors">Logout</button>
         </div>
@@ -83,7 +92,7 @@
           <h2 class="text-2xl font-bold text-gray-800 mb-4">🧰 Question Set Builder</h2>
 
           <div class="grid md:grid-cols-3 gap-3 mb-4">
-            <input id="setName" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none md:col-span-2" placeholder="Set name (e.g., 'Round 1 – Ancient India')"/>
+            <input id="setName" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none md:col-span-2" placeholder="Set name"/>
             <button onclick="createFreshSet()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded-lg">➕ New Set (7)</button>
           </div>
 
@@ -103,7 +112,7 @@
           </div>
         </div>
 
-        <!-- LIVE STATS -->
+        <!-- LIVE STATS + ADMIN LB -->
         <div class="space-y-6">
           <div class="bg-white rounded-2xl shadow-xl p-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Battle Statistics</h2>
@@ -114,7 +123,7 @@
               </div>
               <div class="bg-blue-50 p-4 rounded-xl">
                 <h3 class="font-bold text-blue-800 mb-2">👥 Active Warriors</h3>
-                <div id="activeParticipants" class="text-blue-600">0 / 8 warriors online</div>
+                <div id="activeParticipants" class="text-blue-600">0 warriors online</div>
               </div>
               <div class="bg-purple-50 p-4 rounded-xl">
                 <h3 class="font-bold text-purple-800 mb-2">📊 Current Question</h3>
@@ -168,7 +177,7 @@
         </div>
       </div>
 
-      <div id="questionArea" class="bg-white rounded-2xl shadow-xl p-8 mb-6 hidden">
+      <div id="questionArea" class="bg-white rounded-2xl shadow-2xl p-8 mb-6 hidden">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-2xl font-bold text-gray-800">Battle Question</h2>
           <div class="relative w-16 h-16">
@@ -181,7 +190,7 @@
         </div>
 
         <div id="participantImageWrap" class="mb-4 hidden">
-          <img id="participantImage" class="w-full max-h-72 object-contain rounded-xl img-card" alt="Question image"/>
+          <img id="participantImage" class="w-full max-h-72 object-contain rounded-xl" alt="Question image"/>
         </div>
 
         <div id="participantQuestionText" class="text-xl text-gray-800 mb-6 p-4 bg-amber-50 rounded-xl border-l-4 border-amber-500">Waiting for question...</div>
@@ -206,10 +215,11 @@
     const SUPABASE_URL = 'https://iondedmhlyonsmpqulhq.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvbmRlZG1obHlvbnNtcHF1bGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyOTQ2MjQsImV4cCI6MjA3NDg3MDYyNH0.WFo2SfBf_Z2_e6C_pSuT8YStTCAD9pdGo90JNrgZdzM';
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const STORAGE_BUCKET = 'question-images';
 
     // ===================== STATE =====================
-    const STORAGE_KEY = 'warriorQuizState_v7';
-    const SETS_KEY = 'warriorQuizSets_v1'; // save multiple sets locally
+    const STORAGE_KEY = 'warriorQuizState_v8';
+    const SETS_KEY = 'warriorQuizSets_v2';
 
     let gameState = {
       currentUser: null,
@@ -227,6 +237,41 @@
       participants: { warrior1:'battle123', warrior2:'battle123', warrior3:'battle123', warrior4:'battle123', warrior5:'battle123', warrior6:'battle123', warrior7:'battle123', warrior8:'battle123' }
     };
 
+    // ===== Presence (Realtime) =====
+    let presenceChannel = null;
+    let presenceRoster = new Set(); // usernames currently online (from realtime)
+
+    function joinPresence(usernameOrViewer){
+      // unsubscribe old
+      if (presenceChannel) { try { presenceChannel.unsubscribe(); } catch {} }
+      presenceRoster = new Set();
+
+      presenceChannel = sb.channel('arena-presence', {
+        config: { presence: { key: usernameOrViewer } }
+      });
+
+      presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+          const state = presenceChannel.presenceState();
+          const names = new Set();
+          Object.keys(state).forEach(key => {
+            // keys include our chosen "presence key" (username)
+            names.add(key);
+          });
+          presenceRoster = names;
+          updateActiveParticipants();
+          // refresh boards so "Online" tag shows everywhere
+          refreshAllLeaderboards();
+        })
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            // announce we are here
+            await presenceChannel.track({ at: new Date().toISOString() });
+          }
+        });
+    }
+
+    // ===================== PERSISTENCE =====================
     function saveState(){
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         currentUser:gameState.currentUser, userType:gameState.userType,
@@ -245,7 +290,7 @@
       Object.keys(credentials.participants).forEach((u,i)=>{ gameState.participants[u]={name:u,avatar:warriorAvatars[i],online:false}; });
     }
 
-    // ===================== LOGIN (persists across refresh) =====================
+    // ===================== LOGIN (persistent) =====================
     function login(type){
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value.trim();
@@ -261,16 +306,16 @@
         document.getElementById('participantName').textContent=username;
         document.getElementById('participantAvatar').textContent=gameState.participants[username].avatar;
       }
-      saveState(); // persist immediately
+      saveState();
+      // join presence with our username so others see us online
+      joinPresence(username);
       showDashboard(type); updateActiveParticipants(); fetchActiveQuestion(); refreshAllLeaderboards(); populateAdminSelect();
     }
 
-    // KEEP LOGGED IN on refresh
     function showDashboard(type){
       document.getElementById('loginScreen').classList.add('hidden');
       if(type==='admin') document.getElementById('adminDashboard').classList.remove('hidden');
       else {
-        // mark me online again after refresh
         if(gameState.currentUser && gameState.participants[gameState.currentUser]) gameState.participants[gameState.currentUser].online=true;
         document.getElementById('participantDashboard').classList.remove('hidden');
         document.getElementById('participantName').textContent=gameState.currentUser||'Warrior';
@@ -287,10 +332,12 @@
       document.getElementById('participantDashboard').classList.add('hidden');
       document.getElementById('loginScreen').classList.remove('hidden');
       document.getElementById('username').value=''; document.getElementById('password').value='';
+      // rejoin presence as a viewer (anonymous observer) so we still see who is online
+      joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
       updateActiveParticipants(); saveState(); refreshAllLeaderboards();
     }
 
-    // ===================== QUESTIONS (live single) =====================
+    // ===================== ACTIVE QUESTION =====================
     async function fetchActiveQuestion(){
       const { data, error } = await sb.from('questions')
         .select('*')
@@ -322,12 +369,16 @@
       const ff=document.getElementById('fastestFinger'); if(ff) ff.innerText='Waiting for answers...';
     }
 
+    sb.channel('answers-live').on('postgres_changes',{event:'*',schema:'public',table:'answers'}, refreshAllLeaderboards).subscribe();
+    sb.channel('adjustments-live').on('postgres_changes',{event:'*',schema:'public',table:'score_adjustments'}, refreshAllLeaderboards).subscribe();
+    sb.channel('flags-live').on('postgres_changes',{event:'*',schema:'public',table:'participant_flags'}, refreshAllLeaderboards).subscribe();
     sb.channel('questions-live')
-      .on('postgres_changes', { event:'INSERT', schema:'public', table:'questions' }, (payload)=>{ const q=payload.new; if(!q.ended && new Date(q.ends_at)>new Date()) setCurrentQuestion(q); })
-      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'questions' }, (payload)=>{ const q=payload.new; if(q.ended || new Date(q.ends_at)<=new Date()) clearQuestionUI(); else setCurrentQuestion(q); })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'questions'}, (p)=>{ const q=p.new; if(!q.ended && new Date(q.ends_at)>new Date()) setCurrentQuestion(q); })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'questions'}, (p)=>{ const q=p.new; if(q.ended || new Date(q.ends_at)<=new Date()) clearQuestionUI(); else setCurrentQuestion(q); })
       .subscribe();
+    setInterval(refreshAllLeaderboards, 3000);
 
-    // ===================== PARTICIPANT UI =====================
+    // ===================== PARTICIPANT VIEW =====================
     function displayQuestionToParticipants(){
       const qa=document.getElementById('questionArea');
       const wa=document.getElementById('waitingArea');
@@ -335,7 +386,6 @@
       if(!q){ qa.classList.add('hidden'); wa.classList.remove('hidden'); return; }
       wa.classList.add('hidden'); qa.classList.remove('hidden');
 
-      // image
       const imgWrap=document.getElementById('participantImageWrap');
       const img=document.getElementById('participantImage');
       if(q.image_url){ imgWrap.classList.remove('hidden'); img.src=q.image_url; } else { imgWrap.classList.add('hidden'); img.src=''; }
@@ -398,17 +448,12 @@
 
     async function endQuestion(){
       clearInterval(gameState.questionTimer); gameState.questionTimer=null;
-      // do not clear currentQuestion here—let UPDATE from admin run/timeout clear via realtime; but also local fallback:
       gameState.currentQuestion=null;
       if(gameState.userType==='participant'){ document.getElementById('questionArea').classList.add('hidden'); document.getElementById('waitingArea').classList.remove('hidden'); }
       updateCurrentQuestionStatus(); updateFastestFinger(); refreshAllLeaderboards(); saveState();
     }
 
-    // ===================== LIVE STATS & LB =====================
-    sb.channel('answers-live').on('postgres_changes',{event:'*',schema:'public',table:'answers'}, refreshAllLeaderboards).subscribe();
-    sb.channel('adjustments-live').on('postgres_changes',{event:'*',schema:'public',table:'score_adjustments'}, refreshAllLeaderboards).subscribe();
-    sb.channel('flags-live').on('postgres_changes',{event:'*',schema:'public',table:'participant_flags'}, refreshAllLeaderboards).subscribe();
-
+    // ===================== LEADERBOARD =====================
     function pointsFromAnswer(record, qMap){
       if(!record.is_correct) return 0;
       const q = qMap[record.question_id];
@@ -417,37 +462,43 @@
 
     async function computeLeaderboard(){
       const users = Object.keys(credentials.participants);
-      // fetch answers and relevant question points
-      const { data: answers } = await sb.from('answers').select('username,question_id,is_correct');
-      const { data: qs } = await sb.from('questions').select('id,points');
-      const qMap = Object.fromEntries((qs||[]).map(q=>[q.id, q]));
 
+      const [{ data: answers }, { data: qs }] = await Promise.all([
+        sb.from('answers').select('username,question_id,is_correct'),
+        sb.from('questions').select('id,points')
+      ]);
+
+      const qMap = Object.fromEntries((qs||[]).map(q=>[q.id, q]));
       const totals = {};
       (answers||[]).forEach(r=>{
         if(!totals[r.username]) totals[r.username]=0;
         totals[r.username]+=pointsFromAnswer(r, qMap);
       });
 
-      // adjustments
       const { data: adj } = await sb.from('score_adjustments').select('username,delta');
       (adj||[]).forEach(a=>{ if(!totals[a.username]) totals[a.username]=0; totals[a.username]+=(a.delta||0); });
 
-      // flags
       const { data: flags } = await sb.from('participant_flags').select('username,removed');
       const removed = new Set((flags||[]).filter(f=>f.removed).map(f=>f.username));
 
       users.forEach(u=>{ if(!totals[u]) totals[u]=0; });
       const rows = Object.entries(totals)
         .filter(([u,_])=>!removed.has(u))
-        .map(([u,score])=>({ name:u, score, avatar: gameState.participants[u]?.avatar||'⚔️', online: !!gameState.participants[u]?.online }));
+        .map(([u,score])=>({
+          name:u,
+          score,
+          avatar: gameState.participants[u]?.avatar||'⚔️',
+          // ONLINE pulled from realtime presence for ALL boards
+          online: presenceRoster.has(u)
+        }))
+        .sort((a,b)=>b.score-a.score);
 
-      rows.sort((a,b)=>b.score-a.score);
       return rows;
     }
 
     async function refreshAllLeaderboards(){
       const rows = await computeLeaderboard();
-      renderLeaderboard('loginLeaderboard', rows, true);
+      renderLeaderboard('loginLeaderboard', rows, false);
       renderLeaderboard('adminLeaderboard', rows, false);
       renderLeaderboard('participantLeaderboard', rows, false);
       if(gameState.userType==='participant' && gameState.currentUser){
@@ -457,7 +508,7 @@
       populateAdminSelect();
     }
 
-    function renderLeaderboard(containerId, rows, small){
+    function renderLeaderboard(containerId, rows){
       const el=document.getElementById(containerId); if(!el) return;
       const prev=gameState.prevRanks||{}; const mapRank={}; rows.forEach((r,i)=>mapRank[r.name]=i+1);
       el.innerHTML = rows.map((p,i)=>{
@@ -466,8 +517,7 @@
         const me=p.name===gameState.currentUser && gameState.userType==='participant';
         const hl=me?'ring-2 ring-blue-500 bg-blue-50':'bg-gradient-to-r from-amber-50 to-orange-50';
         const jump=(prev[p.name] && prev[p.name]>(i+1))?'rank-jump':'';
-        const pad=small?'p-3':'p-4';
-        return `<div class="flex items-center justify-between ${pad} ${hl} ${jump} rounded-xl border border-amber-200">
+        return `<div class="flex items-center justify-between p-4 ${hl} ${jump} rounded-xl border border-amber-200">
           <div class="flex items-center space-x-4">
             <span class="text-2xl">${medal}</span>
             <span class="text-2xl">${p.avatar}</span>
@@ -499,13 +549,9 @@
     }
 
     function updateActiveParticipants(){
-      const count=Object.values(gameState.participants).filter(p=>p.online).length;
-      const el=document.getElementById('activeParticipants'); if(el) el.textContent=`${count} / 8 warriors online`;
-    }
-
-    function updateCurrentQuestionStatus(){
-      const el=document.getElementById('currentQuestionStatus'); if(!el) return;
-      el.textContent=gameState.currentQuestion?'Active - gathering answers...':'No active question';
+      // Count based on realtime presence
+      const count = Array.from(presenceRoster).filter(u => /^warrior[1-8]$/.test(u)).length;
+      const el=document.getElementById('activeParticipants'); if(el) el.textContent=`${count} warriors online`;
     }
 
     // ===================== ADMIN ADJUSTMENTS / REMOVE =====================
@@ -526,8 +572,7 @@
       const { error } = await sb.from('participant_flags').upsert({ username:user, removed }, { onConflict:'username' });
       if(error){ msg('Failed: '+error.message,true); return; }
       msg(`${removed?'Removed':'Restored'} ${user}.`);
-      if(gameState.participants[user]) gameState.participants[user].online=!removed;
-      updateActiveParticipants(); refreshAllLeaderboards();
+      refreshAllLeaderboards();
     }
     function populateAdminSelect(){
       const sel=document.getElementById('adminSelectUser'); if(!sel) return;
@@ -536,9 +581,9 @@
     }
     function msg(t,bad=false){ const el=document.getElementById('adminActionMsg'); if(!el) return; el.textContent=t; el.className='text-sm '+(bad?'text-red-600':'text-gray-600'); }
 
-    // ===================== SET BUILDER (local) =====================
+    // ===================== SET BUILDER with DRAG & DROP =====================
     function getBlankQuestion(){
-      return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' };
+      return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_path:'', image_url:'' };
     }
     function createFreshSet(){
       document.getElementById('setName').value = 'New Set ' + new Date().toLocaleTimeString();
@@ -550,19 +595,30 @@
       const idx = wrap.children.length+1;
       const q = data || getBlankQuestion();
       const div=document.createElement('div');
-      div.className='p-4 rounded-xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50';
+      div.className='qrow p-4 rounded-xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50';
       div.innerHTML=`
         <div class="flex items-center justify-between mb-2">
           <div class="font-bold text-amber-900">Q${idx}</div>
           <button class="text-sm text-red-600" onclick="this.closest('.qrow').remove(); renumberQuestions();">Remove</button>
         </div>
         <div class="grid md:grid-cols-2 gap-2">
-          <input class="q-text px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Question text" value="${q.text}"/>
-          <input class="q-image px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Image URL (optional)" value="${q.image_url||''}"/>
-          <input class="q-a px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option A" value="${q.A}"/>
-          <input class="q-b px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option B" value="${q.B}"/>
-          <input class="q-c px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option C" value="${q.C}"/>
-          <input class="q-d px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option D" value="${q.D}"/>
+          <input class="q-text px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Question text" value="${escapeHtml(q.text)}"/>
+          <div class="space-y-2">
+            <div class="dropzone q-drop flex items-center justify-between gap-3">
+              <div class="text-sm text-amber-800">Drag & drop image here or</div>
+              <input type="file" accept="image/*" class="q-file hidden"/>
+              <button type="button" class="q-pick bg-amber-600 hover:bg-amber-700 text-white text-sm px-3 py-1 rounded">Choose</button>
+            </div>
+            <div class="flex items-center gap-3 q-thumb-wrap ${q.image_url?'':'hidden'}">
+              <img class="thumb q-thumb" src="${q.image_url||''}" alt="preview"/>
+              <button type="button" class="q-clear text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">Remove</button>
+            </div>
+          </div>
+
+          <input class="q-a px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option A" value="${escapeHtml(q.A)}"/>
+          <input class="q-b px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option B" value="${escapeHtml(q.B)}"/>
+          <input class="q-c px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option C" value="${escapeHtml(q.C)}"/>
+          <input class="q-d px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option D" value="${escapeHtml(q.D)}"/>
           <select class="q-correct px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500">
             <option value="">Correct?</option><option ${q.correct==='A'?'selected':''}>A</option><option ${q.correct==='B'?'selected':''}>B</option><option ${q.correct==='C'?'selected':''}>C</option><option ${q.correct==='D'?'selected':''}>D</option>
           </select>
@@ -570,21 +626,54 @@
           <input type="number" min="10" max="1000" class="q-points px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Points" value="${q.points}"/>
         </div>
       `;
-      div.classList.add('qrow');
       wrap.appendChild(div);
+
+      // wire dropzone
+      const dz   = div.querySelector('.q-drop');
+      const pick = div.querySelector('.q-pick');
+      const file = div.querySelector('.q-file');
+      const tWrap= div.querySelector('.q-thumb-wrap');
+      const thumb= div.querySelector('.q-thumb');
+      const clear= div.querySelector('.q-clear');
+
+      function setThumb(url){ thumb.src=url; tWrap.classList.remove('hidden'); }
+      function hideThumb(){ thumb.src=''; tWrap.classList.add('hidden'); div.dataset.image_path=''; div.dataset.image_url=''; }
+
+      dz.addEventListener('dragover',(e)=>{ e.preventDefault(); dz.classList.add('drag'); });
+      dz.addEventListener('dragleave',()=> dz.classList.remove('drag'));
+      dz.addEventListener('drop', async (e)=>{ e.preventDefault(); dz.classList.remove('drag'); if(e.dataTransfer.files?.length){ await handleUpload(e.dataTransfer.files[0]); }});
+      pick.addEventListener('click', ()=> file.click());
+      file.addEventListener('change', async ()=>{ if(file.files?.length) await handleUpload(file.files[0]); });
+      clear.addEventListener('click', hideThumb);
+
+      async function handleUpload(f){
+        try{
+          const ext = (f.name.split('.').pop()||'png').toLowerCase();
+          const safeName = (f.name||'image').replace(/[^A-Za-z0-9._-]/g,'_');
+          const path = `qimg/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
+          const { error } = await sb.storage.from(STORAGE_BUCKET).upload(path, f, { upsert:false, contentType: f.type || `image/${ext}` });
+          if(error){ alert('Upload failed: '+error.message); return; }
+          const { data } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+          div.dataset.image_path = path;
+          div.dataset.image_url  = data.publicUrl;
+          setThumb(data.publicUrl);
+        }catch(err){ console.error(err); alert('Upload failed.'); }
+      }
     }
     function renumberQuestions(){
       [...document.querySelectorAll('#setQuestions .qrow')].forEach((row,i)=>{
         row.querySelector('.font-bold').textContent = 'Q'+(i+1);
       });
     }
+    const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
     function collectSetFromUI(){
       const name=document.getElementById('setName').value.trim() || 'Untitled Set';
       const rows=[...document.querySelectorAll('#setQuestions .qrow')];
       const items=rows.map(r=>({
         text:r.querySelector('.q-text').value.trim(),
-        image_url:r.querySelector('.q-image').value.trim(),
+        image_path:r.dataset.image_path||'',
+        image_url:r.dataset.image_url||'',
         A:r.querySelector('.q-a').value.trim(),
         B:r.querySelector('.q-b').value.trim(),
         C:r.querySelector('.q-c').value.trim(),
@@ -622,12 +711,10 @@
       set.items.forEach(item=>addQuestionRow(item));
     }
 
-    // ===================== SET RUNNER =====================
+    // ===================== RUN SET =====================
     async function startSetRun(){
       const { name, items } = collectSetFromUI();
       if(items.length===0){ alert('Add some questions first'); return; }
-
-      // End any active question
       await sb.from('questions').update({ ended:true }).eq('ended', false);
 
       gameState.setRunner.running=true;
@@ -636,13 +723,11 @@
       document.getElementById('setRunStatus').textContent = `Running "${name}" (${items.length} questions)`;
       runNextInQueue();
     }
-
     function cancelSetRun(){
       gameState.setRunner.running=false;
       clearTimeout(gameState.setRunner.timerId);
       document.getElementById('setRunStatus').textContent = 'Stopped.';
     }
-
     async function runNextInQueue(){
       if(!gameState.setRunner.running) return;
       const i=gameState.setRunner.cursor;
@@ -670,20 +755,30 @@
       const { error } = await sb.from('questions').insert(payload);
       if(error){ console.error('Insert question failed:', error); cancelSetRun(); alert('Insert question failed. Check schema & policies.'); return; }
 
-      // schedule next after this one ends (small gap 1s)
       gameState.setRunner.cursor++;
       gameState.setRunner.timerId = setTimeout(runNextInQueue, (item.timer||30)*1000 + 1000);
     }
 
+    // ===================== GLOBAL UI HELPERS =====================
+    function openLeaderboardModal(){ document.getElementById('leaderboardModal').classList.remove('hidden'); }
+    function closeLeaderboardModal(){ document.getElementById('leaderboardModal').classList.add('hidden'); }
+
+    // Prevent the browser from opening files when dropped anywhere
+    window.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('drop',     e => e.preventDefault());
+
     // ===================== BOOT =====================
-    (async function boot(){
+    (function boot(){
       loadState(); initializeParticipants();
-      // stay logged in across refresh
+
+      // Join presence immediately as a viewer (so the Login screen sees who’s online)
+      if (gameState.userType && gameState.currentUser) joinPresence(gameState.currentUser);
+      else joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
+
       if(gameState.userType){ showDashboard(gameState.userType); }
-      loadSavedSetsDropdown(); // sets dropdown
+      loadSavedSetsDropdown();
       populateAdminSelect();
-      fetchActiveQuestion(); updateActiveParticipants(); updateCurrentQuestionStatus();
-      refreshAllLeaderboards();
+      fetchActiveQuestion(); refreshAllLeaderboards();
       window.addEventListener('beforeunload', saveState);
     })();
   </script>
