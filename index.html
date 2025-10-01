@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz App – Admin & Participants</title>
+  <style>
+    :root{
+      --bg:#0f172a;/*slate-900*/
+      --panel:#111827;/*gray-900*/
+      --muted:#1f2937;/*gray-800*/
+      --text:#e5e7eb;/*gray-200*/
+      --sub:#9ca3af;/*gray-400*/
+      --brand:#22d3ee;/*cyan-400*/
+      --ok:#34d399;/*emerald*/
+      --warn:#fbbf24;/*amber*/
+      --bad:#f87171;/*red*/
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#0b1220,#0f172a 35%);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .badge{background:var(--muted);color:var(--sub);border:1px solid #334155;border-radius:999px;padding:6px 10px;font-size:12px}
+    .card{background:radial-gradient(1200px 600px at 100% -100%,rgba(34,211,238,0.08),transparent 55%),linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02));border:1px solid #374151;border-radius:18px;padding:18px}
+    h1,h2,h3{margin:4px 0 10px}
+    h1{font-size:22px}
+    h2{font-size:18px}
+    .grid{display:grid;gap:16px}
+    .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .muted{color:var(--sub)}
+    input,select,textarea,button{font:inherit}
+    input[type=text],input[type=number],input[type=password],textarea,select{width:100%;background:#0b1020;border:1px solid #334155;border-radius:12px;color:var(--text);padding:10px}
+    textarea{min-height:70px}
+    button{background:linear-gradient(180deg,#22d3ee,#0ea5b3);border:none;border-radius:12px;padding:10px 14px;color:#042025;font-weight:700;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid #334155;color:var(--text)}
+    button.warn{background:linear-gradient(180deg,#fbbf24,#d97706);color:#1f1300}
+    button.bad{background:linear-gradient(180deg,#f87171,#dc2626);color:#2a0909}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .pill{padding:4px 8px;border-radius:999px;border:1px solid #374151;color:var(--sub);font-size:12px}
+    .timer{font-variant-numeric:tabular-nums;font-size:28px;font-weight:800}
+    .list{display:grid;gap:8px;margin-top:8px}
+    .option{display:flex;gap:10px;align-items:center;border:1px solid #334155;border-radius:12px;padding:10px;background:#0b1020}
+    .option input{transform:scale(1.2)}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #1f2937;text-align:left}
+    .ok{color:var(--ok)}
+    .badc{color:var(--bad)}
+    .warnc{color:var(--warn)}
+    .small{font-size:12px}
+    .center{text-align:center}
+    .hidden{display:none}
+    .hr{height:1px;background:#1f2937;margin:8px 0}
+    .tip{font-size:12px;color:#a3a3a3}
+    .tag{background:#052329;border:1px solid #124a54;color:#9ee7f6;padding:4px 8px;border-radius:999px;font-size:12px}
+    .score{font-weight:800}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="row">
+        <h1>⚡ Quiz Control</h1>
+        <span class="badge" id="appStatus">idle</span>
+      </div>
+      <div class="row small">
+        <span class="pill">Max 8 participants</span>
+        <span class="pill">Fastest Finger + Leaderboard</span>
+        <span class="pill">Per‑question timer</span>
+      </div>
+    </header>
+
+    <!-- LOGIN SWITCHER -->
+    <div class="card" id="loginCard">
+      <h2>Login</h2>
+      <div class="grid grid-2">
+        <div>
+          <h3>Admin</h3>
+          <div class="grid">
+            <input id="adminUser" placeholder="username (default: admin)" value="admin" />
+            <input id="adminPass" type="password" placeholder="password (default: quiz123)" value="quiz123" />
+            <button id="adminLogin">Login as Admin</button>
+          </div>
+          <p class="tip">Default admin credentials are built‑in. Change in code if needed.</p>
+        </div>
+        <div>
+          <h3>Participant</h3>
+          <div class="grid">
+            <select id="pUser"></select>
+            <input id="pPass" type="password" placeholder="participant password" />
+            <button id="pLogin">Login as Participant</button>
+          </div>
+          <p class="tip">Pick one of the 8 built‑in participant accounts. An account can be used by only one device/tab at a time.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div class="card hidden" id="adminPanel">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <h2>Admin Console</h2>
+        <div class="row">
+          <span id="adminUserLabel" class="tag"></span>
+          <button class="ghost" id="logoutAdmin">Logout</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <h3>Create Question</h3>
+          <div class="grid">
+            <input id="qTitle" placeholder="Question title" />
+            <textarea id="qText" placeholder="Enter full question text"></textarea>
+            <div class="grid">
+              <input id="opt0" placeholder="Option A" />
+              <input id="opt1" placeholder="Option B" />
+              <input id="opt2" placeholder="Option C" />
+              <input id="opt3" placeholder="Option D" />
+            </div>
+            <div class="row">
+              <label>Correct option:
+                <select id="qCorrect">
+                  <option value="0">A</option>
+                  <option value="1">B</option>
+                  <option value="2">C</option>
+                  <option value="3">D</option>
+                </select>
+              </label>
+              <label>Timer (seconds): <input id="qTimer" type="number" value="30" min="5" max="600" style="width:120px"></label>
+            </div>
+            <div class="row">
+              <button id="btnStart">Start Question</button>
+              <button id="btnEnd" class="warn">End Now</button>
+              <button id="btnClear" class="ghost">Clear / Next</button>
+            </div>
+            <div class="row">
+              <span>Question # <span id="qNumber">1</span></span>
+              <span class="pill">State: <span id="qState">idle</span></span>
+              <span class="pill">Time left: <span id="adminTimeLeft">--</span></span>
+            </div>
+          </div>
+          <div class="hr"></div>
+          <h3>Live Answers</h3>
+          <div class="list" id="answersLive"></div>
+        </div>
+
+        <div>
+          <h3>Insights</h3>
+          <div class="grid">
+            <div class="row"><span class="pill">Fastest Finger:</span> <strong id="fastestAny">—</strong></div>
+            <div class="row"><span class="pill">First Correct:</span> <strong id="fastestCorrect">—</strong></div>
+            <div class="row"><span class="pill">Total Answers:</span> <strong id="totalAnswers">0</strong></div>
+            <div class="row"><span class="pill">Participants Online:</span> <strong id="onlineCount">0</strong></div>
+          </div>
+          <div class="hr"></div>
+          <h3>Leaderboard</h3>
+          <table id="leaderAdmin">
+            <thead><tr><th>#</th><th>Player</th><th>Score</th><th class="small">Avg Time (s)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PARTICIPANT PANEL -->
+    <div class="card hidden" id="pPanel">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <h2>Participant</h2>
+        <div class="row">
+          <span id="pUserLabel" class="tag"></span>
+          <button class="ghost" id="logoutP">Logout</button>
+        </div>
+      </div>
+
+      <div id="pWaiting" class="center muted" style="padding:12px">Waiting for the admin to start the next question…</div>
+
+      <div id="pQuiz" class="hidden">
+        <div class="row" style="justify-content:space-between">
+          <div>
+            <div class="pill">Question # <span id="pQNo">1</span></div>
+            <h3 id="pQTitle">—</h3>
+          </div>
+          <div class="timer" id="pTimer">00:00</div>
+        </div>
+        <div id="pQText" class="muted" style="margin:6px 0 10px"></div>
+        <form id="pForm" class="list"></form>
+        <div class="row">
+          <button id="pSubmit">Submit Answer</button>
+          <span id="submitStatus" class="pill">not submitted</span>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="grid grid-2">
+        <div>
+          <h3>Round Insights</h3>
+          <div class="row"><span class="pill">Fastest Finger:</span> <strong id="pFastestAny">—</strong></div>
+          <div class="row"><span class="pill">First Correct:</span> <strong id="pFastestCorrect">—</strong></div>
+        </div>
+        <div>
+          <h3>Leaderboard</h3>
+          <table id="leaderP">
+            <thead><tr><th>#</th><th>Player</th><th>Score</th><th class="small">Avg Time (s)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <p class="tip">Open this page in multiple tabs/devices. Use different participant accounts. Everything syncs via localStorage events (no server required).</p>
+    </div>
+  </div>
+
+  <script>
+  // ======= CONFIG: Built‑in accounts =======
+  const ADMIN = { username: 'admin', password: 'quiz123' };
+  const PARTICIPANTS = [
+    {u:'p1', p:'1111'}, {u:'p2', p:'2222'}, {u:'p3', p:'3333'}, {u:'p4', p:'4444'},
+    {u:'p5', p:'5555'}, {u:'p6', p:'6666'}, {u:'p7', p:'7777'}, {u:'p8', p:'8888'}
+  ];
+
+  // ======= Simple store in localStorage (cross‑tab sync) =======
+  const KEY = 'quiz.shared.v1';
+  const ONLINE_KEY = 'quiz.online.v1'; // heartbeat of signed‑in participants
+
+  const initialState = {
+    qNumber: 1,
+    round: {
+      state: 'idle', // idle | running | ended
+      title: '', text: '', options: [], correct: 0,
+      startedAt: 0, endsAt: 0, duration: 0,
+      answers: [] // {user, idx, at, msFromStart, correct}
+    },
+    leaderboard: {}, // user -> {score, totalMs, answers}
+    locks: { } // user -> true (prevents duplicate login)
+  };
+
+  function getState(){
+    try{ return JSON.parse(localStorage.getItem(KEY)) || initialState; }catch(e){ return initialState }
+  }
+  function setState(next){ localStorage.setItem(KEY, JSON.stringify(next)); }
+
+  // Heartbeat for online tracking
+  function heartbeat(user){
+    const now = Date.now();
+    const map = JSON.parse(localStorage.getItem(ONLINE_KEY) || '{}');
+    map[user] = now;
+    localStorage.setItem(ONLINE_KEY, JSON.stringify(map));
+  }
+  function countOnline(){
+    const map = JSON.parse(localStorage.getItem(ONLINE_KEY) || '{}');
+    const now = Date.now();
+    return Object.values(map).filter(ts => now - ts < 10000).length; // last 10s
+  }
+  setInterval(()=>{
+    if(window.currentUser) heartbeat(window.currentUser);
+    document.getElementById('onlineCount').textContent = countOnline();
+  }, 3000);
+
+  // Listen for storage updates to live‑sync UI
+  window.addEventListener('storage', (e)=>{
+    if(e.key === KEY){ renderAll(); }
+    if(e.key === ONLINE_KEY){ document.getElementById('onlineCount').textContent = countOnline(); }
+  });
+
+  // ======= Auth / Sessions =======
+  const adminLoginBtn = document.getElementById('adminLogin');
+  const pLoginBtn = document.getElementById('pLogin');
+  const adminUserLabel = document.getElementById('adminUserLabel');
+  const pUserLabel = document.getElementById('pUserLabel');
+
+  // populate participant select
+  const pUserSel = document.getElementById('pUser');
+  PARTICIPANTS.forEach(({u})=>{
+    const opt = document.createElement('option'); opt.value=u; opt.textContent=`${u}`; pUserSel.appendChild(opt);
+  });
+
+  function show(id, on){ document.getElementById(id).classList.toggle('hidden', !on); }
+  function setStatus(t){ document.getElementById('appStatus').textContent = t; }
+
+  adminLoginBtn.onclick = ()=>{
+    const u = document.getElementById('adminUser').value.trim();
+    const p = document.getElementById('adminPass').value.trim();
+    if(u===ADMIN.username && p===ADMIN.password){
+      window.currentUser = 'admin';
+      setStatus('admin');
+      adminUserLabel.textContent = `admin`;
+      show('loginCard', false); show('adminPanel', true); show('pPanel', false);
+      renderAll();
+    } else alert('Invalid admin credentials');
+  };
+
+  pLoginBtn.onclick = ()=>{
+    const u = document.getElementById('pUser').value;
+    const p = document.getElementById('pPass').value.trim();
+    const match = PARTICIPANTS.find(x=>x.u===u && x.p===p);
+    if(!match){ alert('Invalid participant credentials'); return; }
+    // lock account if free
+    const S = getState();
+    if(S.locks[u]){ alert('This account is already in use.'); return; }
+    S.locks[u] = true; setState(S);
+    window.currentUser = u;
+    setStatus('participant');
+    pUserLabel.textContent = u;
+    show('loginCard', false); show('adminPanel', false); show('pPanel', true);
+    renderAll();
+  };
+
+  document.getElementById('logoutAdmin').onclick = ()=>{
+    window.currentUser = null; setStatus('idle');
+    show('loginCard', true); show('adminPanel', false); show('pPanel', false);
+  };
+  document.getElementById('logoutP').onclick = ()=>{
+    const u = window.currentUser; const S = getState();
+    if(u && S.locks[u]){ delete S.locks[u]; setState(S); }
+    window.currentUser = null; setStatus('idle');
+    show('loginCard', true); show('adminPanel', false); show('pPanel', false);
+  };
+
+  // ======= Admin: prepare/start/end/clear round =======
+  const qNumberEl = document.getElementById('qNumber');
+  const qStateEl = document.getElementById('qState');
+  const adminTimeLeftEl = document.getElementById('adminTimeLeft');
+
+  document.getElementById('btnStart').onclick = ()=>{
+    const title = document.getElementById('qTitle').value.trim();
+    const text = document.getElementById('qText').value.trim();
+    const opts = [0,1,2,3].map(i=>document.getElementById('opt'+i).value.trim());
+    const correct = +document.getElementById('qCorrect').value;
+    const duration = Math.max(5, Math.min(600, +document.getElementById('qTimer').value||30));
+    if(!title||!text||opts.some(o=>!o)){ alert('Fill question, all options.'); return; }
+    const S = getState();
+    const now = Date.now();
+    S.round = { state:'running', title, text, options:opts, correct, startedAt:now, endsAt: now+duration*1000, duration, answers:[] };
+    setState(S);
+    renderAll();
+  };
+
+  document.getElementById('btnEnd').onclick = ()=>{
+    const S = getState();
+    if(S.round.state==='running'){
+      S.round.state='ended'; S.round.endsAt = Date.now(); setState(S); renderAll();
+    }
+  };
+
+  document.getElementById('btnClear').onclick = ()=>{
+    const S = getState();
+    S.qNumber = (S.qNumber||1) + 1;
+    S.round = { state:'idle', title:'', text:'', options:[], correct:0, startedAt:0, endsAt:0, duration:0, answers:[] };
+    setState(S);
+    // reset form
+    ['qTitle','qText','opt0','opt1','opt2','opt3'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('qCorrect').value='0';
+    document.getElementById('qTimer').value='30';
+    renderAll();
+  };
+
+  // ======= Participant: view & answer =======
+  const pWaiting = document.getElementById('pWaiting');
+  const pQuiz = document.getElementById('pQuiz');
+  const pQNo = document.getElementById('pQNo');
+  const pQTitle = document.getElementById('pQTitle');
+  const pQText = document.getElementById('pQText');
+  const pForm = document.getElementById('pForm');
+  const pTimer = document.getElementById('pTimer');
+  const pSubmitBtn = document.getElementById('pSubmit');
+  const submitStatus = document.getElementById('submitStatus');
+
+  pSubmitBtn.onclick = (e)=>{
+    e.preventDefault();
+    const S = getState();
+    if(S.round.state!=='running'){ alert('No active question.'); return; }
+    const formData = new FormData(pForm);
+    const idx = +formData.get('opt');
+    if(Number.isNaN(idx)){ alert('Please choose an option.'); return; }
+    const u = window.currentUser;
+    // prevent duplicate submit
+    if(S.round.answers.some(a=>a.user===u)) { submitStatus.textContent='already submitted'; return; }
+    const now = Date.now();
+    const msFromStart = now - S.round.startedAt;
+    const correct = (idx === S.round.correct);
+    S.round.answers.push({user:u, idx, at:now, msFromStart, correct});
+    // update leaderboard
+    if(!S.leaderboard[u]) S.leaderboard[u] = {score:0,totalMs:0,answers:0};
+    if(correct){ S.leaderboard[u].score += 1; }
+    S.leaderboard[u].totalMs += msFromStart; S.leaderboard[u].answers += 1;
+    setState(S);
+    submitStatus.textContent = 'submitted';
+    renderAll();
+  };
+
+  function msToClock(ms){
+    const s = Math.max(0, Math.ceil(ms/1000));
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const ss = (s%60).toString().padStart(2,'0');
+    return `${m}:${ss}`;
+  }
+
+  // ======= Rendering =======
+  function renderAll(){
+    const S = getState();
+    // Admin state
+    qNumberEl.textContent = S.qNumber || 1;
+    qStateEl.textContent = S.round.state;
+    // Timer for admin
+    if(S.round.state==='running'){
+      const left = S.round.endsAt - Date.now();
+      adminTimeLeftEl.textContent = left>0? msToClock(left): '00:00';
+      if(left<=0 && S.round.state==='running'){ S.round.state='ended'; setState(S); }
+    } else if(S.round.state==='idle'){
+      adminTimeLeftEl.textContent = '--';
+    } else {
+      adminTimeLeftEl.textContent = '00:00';
+    }
+
+    // Live answers list
+    const cont = document.getElementById('answersLive');
+    cont.innerHTML = '';
+    [...S.round.answers].sort((a,b)=>a.at-b.at).forEach((a,i)=>{
+      const div = document.createElement('div');
+      div.className='option';
+      const correct = a.idx===S.round.correct;
+      div.innerHTML = `<strong>${i+1}. ${a.user}</strong> — chose <em>${letter(a.idx)}</em> <span class="${correct?'ok':'badc'}">${correct?'✓':'✗'}</span> <span class="pill">${(a.msFromStart/1000).toFixed(2)}s</span>`;
+      cont.appendChild(div);
+    });
+
+    // Insights
+    const fastestAny = S.round.answers.length ? S.round.answers.reduce((m,a)=>a.at<m.at?a:m) : null;
+    document.getElementById('fastestAny').textContent = fastestAny? `${fastestAny.user} (${(fastestAny.msFromStart/1000).toFixed(2)}s)` : '—';
+    const firstCorrect = S.round.answers.filter(a=>a.correct).sort((a,b)=>a.at-b.at)[0];
+    document.getElementById('fastestCorrect').textContent = firstCorrect? `${firstCorrect.user} (${(firstCorrect.msFromStart/1000).toFixed(2)}s)` : '—';
+    document.getElementById('totalAnswers').textContent = S.round.answers.length;
+
+    // Leaderboards
+    renderLeaderboard('leaderAdmin', S.leaderboard);
+    renderLeaderboard('leaderP', S.leaderboard);
+
+    // Participant view
+    if(window.currentUser && window.currentUser!=='admin'){
+      const u = window.currentUser;
+      pQNo.textContent = S.qNumber || 1;
+      if(S.round.state==='running'){
+        pWaiting.classList.add('hidden');
+        pQuiz.classList.remove('hidden');
+        pQTitle.textContent = S.round.title;
+        pQText.textContent = S.round.text;
+        pForm.innerHTML = S.round.options.map((o,i)=>{
+          return `<label class="option"><input type="radio" name="opt" value="${i}"> <span>${letter(i)}. ${escapeHtml(o)}</span></label>`;
+        }).join('');
+        const left = S.round.endsAt - Date.now();
+        pTimer.textContent = left>0? msToClock(left): '00:00';
+        pSubmitBtn.disabled = left<=0 || S.round.answers.some(a=>a.user===u);
+        submitStatus.textContent = S.round.answers.some(a=>a.user===u)? 'submitted' : 'not submitted';
+      } else {
+        pQuiz.classList.add('hidden');
+        pWaiting.classList.remove('hidden');
+      }
+      // show insights
+      document.getElementById('pFastestAny').textContent = fastestAny? `${fastestAny.user} (${(fastestAny.msFromStart/1000).toFixed(2)}s)` : '—';
+      document.getElementById('pFastestCorrect').textContent = firstCorrect? `${firstCorrect.user} (${(firstCorrect.msFromStart/1000).toFixed(2)}s)` : '—';
+    }
+  }
+
+  function renderLeaderboard(tableId, lb){
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    const rows = Object.entries(lb).map(([user,stat])=>({user,...stat}));
+    rows.sort((a,b)=> b.score - a.score || (a.totalMs/a.answers) - (b.totalMs/b.answers));
+    tbody.innerHTML = rows.map((r,i)=>{
+      const avg = r.answers? (r.totalMs/r.answers/1000).toFixed(2): '-';
+      return `<tr><td>${i+1}</td><td>${r.user}</td><td class="score">${r.score}</td><td>${avg}</td></tr>`
+    }).join('');
+  }
+
+  function letter(i){ return ['A','B','C','D'][i] || '?'; }
+  function escapeHtml(s){ return s.replace(/[&<>"]+/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+  // Timers repaint
+  setInterval(()=>{
+    const S = getState();
+    if(S.round.state==='running'){
+      renderAll();
+    }
+  }, 500);
+
+  // build participant select labels with lock indicator
+  function refreshParticipantSelect(){
+    const S = getState();
+    pUserSel.querySelectorAll('option').forEach(opt=>{
+      const u = opt.value; const locked = !!S.locks[u];
+      opt.textContent = locked? `${u} (in use)` : u;
+      opt.disabled = locked;
+    });
+  }
+  setInterval(refreshParticipantSelect, 1500);
+
+  // initial render
+  renderAll();
+  refreshParticipantSelect();
+
+  </script>
+</body>
+</html>
