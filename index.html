@@ -46,7 +46,7 @@
                 <button onclick="openLeaderboardModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300">🏆 View Leaderboard</button>
             </div>
             <div class="mt-6 text-sm text-amber-700 bg-amber-50 p-4 rounded-xl">
-                <p><strong>Admin:</strong> </p>
+                <p><strong>Admin:</strong> admin / Thunder4554</p>
                 <p><strong>Warriors:</strong> warrior1-8 / battle123</p>
             </div>
         </div>
@@ -270,7 +270,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ===================== STATE =====================
-const STORAGE_KEY = 'warriorQuizState_v9';
+const STORAGE_KEY = 'warriorQuizState_v10';
 const SETS_KEY = 'warriorQuizSets_v2';
 const LAST_SET_KEY = 'warriorQuizLastSetName';
 const SETS_TABLE = 'question_sets';
@@ -307,7 +307,9 @@ const credentials = {
 let presenceChannel = null;
 let presenceRoster = new Set();
 function joinPresence(usernameOrViewer){
-    if (presenceChannel) { try { presenceChannel.unsubscribe(); } catch {} }
+    if (presenceChannel) {
+        try { presenceChannel.unsubscribe(); } catch {}
+    }
     presenceRoster = new Set();
     presenceChannel = sb.channel('arena-presence', { config: { presence: { key: usernameOrViewer } } });
     presenceChannel
@@ -356,7 +358,7 @@ function initializeParticipants(){
     });
 }
 
-// ===================== LOGIN =====================
+// ===================== LOGIN (persistent) =====================
 function login(type){
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
@@ -382,7 +384,7 @@ function login(type){
     updateActiveParticipants();
     fetchActiveQuestion();
     refreshAllLeaderboards();
-    populateAdminSelect();
+    populateAdminSelect(true);
     // photo sharing boot
     initPhotoSharingRealtime();
     fetchPhotoShareAllowed();
@@ -454,8 +456,14 @@ function clearQuestionUI(){
     if(ff) ff.innerText='Waiting for answers...';
 }
 
-// Realtime
-sb.channel('answers-live').on('postgres_changes',{event:'*',schema:'public',table:'answers'}, refreshAllLeaderboards).subscribe();
+// Realtime (with Fastest Finger live update)
+sb.channel('answers-live')
+  .on('postgres_changes',{event:'*',schema:'public',table:'answers'}, () => {
+      refreshAllLeaderboards();
+      updateFastestFinger(); // keep fastest finger live
+  })
+  .subscribe();
+
 sb.channel('adjustments-live').on('postgres_changes',{event:'*',schema:'public',table:'score_adjustments'}, refreshAllLeaderboards).subscribe();
 sb.channel('flags-live').on('postgres_changes',{event:'*',schema:'public',table:'participant_flags'}, refreshAllLeaderboards).subscribe();
 sb.channel('questions-live')
@@ -469,7 +477,10 @@ sb.channel('questions-live')
     })
     .subscribe();
 
-setInterval(refreshAllLeaderboards, 3000);
+// extra poll to be safe (1s)
+setInterval(()=>{ if (gameState.currentQuestion) updateFastestFinger(); }, 1000);
+
+setInterval(refreshAllLeaderboards, 3000); // safety refresh
 
 // ===================== PARTICIPANT VIEW =====================
 const isDirectImageUrl = (u) => /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u||'');
@@ -632,6 +643,7 @@ async function refreshAllLeaderboards(){
     renderLeaderboard('adminLeaderboard', rows);
     renderLeaderboard('participantLeaderboard', rows);
 
+    // Update chart if modal open
     const canvas = document.getElementById('leaderboardChart');
     if(canvas && !document.getElementById('leaderboardModal').classList.contains('hidden')){
         const labels = rows.map(r=>r.name);
@@ -663,7 +675,7 @@ async function refreshAllLeaderboards(){
         const me=rows.find(r=>r.name===gameState.currentUser);
         if(me) document.getElementById('participantScore').textContent=me.score;
     }
-    populateAdminSelect();
+    populateAdminSelect(true); // preserve current selection
 }
 function renderLeaderboard(containerId, rows){
     const el=document.getElementById(containerId);
@@ -716,7 +728,7 @@ async function updateFastestFinger(){
 function updateCurrentQuestionStatus(){
     const el = document.getElementById('currentQuestionStatus');
     if(!el) return;
-    if(gameState.currentQuestion) return;
+    if(gameState.currentQuestion) return; // handled by fastestfinger
     el.textContent = 'No active question';
 }
 function updateActiveParticipants(){
@@ -746,10 +758,19 @@ async function adminRemoveParticipant(removed){
     msg(`${removed?'Removed':'Restored'} ${user}.`);
     refreshAllLeaderboards();
 }
-function populateAdminSelect(){
+function populateAdminSelect(preserve=true){
     const sel=document.getElementById('adminSelectUser'); if(!sel) return;
     const users=Object.keys(credentials.participants);
-    sel.innerHTML = users.map(u=>`<option value="${u}">${u}</option>`).join('');
+    const prev=preserve?sel.value:null;
+    const frag=document.createDocumentFragment();
+    users.forEach(u=>{
+        const opt=document.createElement('option');
+        opt.value=u; opt.textContent=u;
+        frag.appendChild(opt);
+    });
+    sel.innerHTML='';
+    sel.appendChild(frag);
+    if(prev && users.includes(prev)) sel.value=prev;
 }
 function msg(t,bad=false){
     const el=document.getElementById('adminActionMsg'); if(!el) return;
@@ -757,8 +778,10 @@ function msg(t,bad=false){
     el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
 }
 
-// ===================== SET BUILDER =====================
-function getBlankQuestion(){ return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' }; }
+// ===================== SET BUILDER (shared DB + fallback to local) =====================
+function getBlankQuestion(){
+    return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' };
+}
 function createFreshSet(){
     document.getElementById('setName').value = 'New Set ' + new Date().toLocaleTimeString();
     const wrap=document.getElementById('setQuestions');
@@ -873,7 +896,9 @@ async function loadSelectedSet(){
 async function startSetRun(){
     const { name, items } = collectSetFromUI();
     if(items.length===0){ alert('Add some questions first'); return; }
+
     await sb.from('questions').update({ ended:true }).eq('ended', false);
+
     gameState.setRunner.running=true;
     gameState.setRunner.queue=items;
     gameState.setRunner.cursor=0;
@@ -895,6 +920,7 @@ async function runNextInQueue(){
     }
     const item = gameState.setRunner.queue[i];
     const start = new Date();
+    // Added 500ms buffer to compensate for network latency
     const ends = new Date(start.getTime() + (item.timer||30)*1000 + 500);
 
     if(item.image_url && !isDirectImageUrl(item.image_url)){
@@ -927,8 +953,11 @@ async function runNextInQueue(){
 async function resetGame(){
     if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and active questions!")) return;
     try {
+        // Call a single RPC function to perform deletes with elevated privileges
         const { error } = await sb.rpc('reset_game_tables');
         if (error) throw error;
+
+        // Clear local UI scores immediately
         document.getElementById('participantScore').textContent = '0';
         gameState.prevRanks = {};
         gameState.currentQuestion = null;
@@ -1091,7 +1120,8 @@ async function uploadParticipantPhoto(){
   }
   const file = input.files[0];
   if(!file.type.startsWith('image/')){ setPhotoMsg('File must be an image.', true); return; }
-  if(file.size > 5*1024*1024){ setPhotoMsg('Max size is 5MB.', true); return; }
+  // ✅ Raised to 25 MB
+  if(file.size > 25*1024*1024){ setPhotoMsg('Max size is 25MB.', true); return; }
 
   const preview = document.getElementById('photoPreview');
   preview.src = URL.createObjectURL(file);
@@ -1268,8 +1298,8 @@ function closeLeaderboardModal(){
     if(gameState.userType){
         showDashboard(gameState.userType);
     }
-    loadSavedSetsDropdown();
-    populateAdminSelect();
+    loadSavedSetsDropdown(); // loads shared (DB) names or falls back to local
+    populateAdminSelect(true);
     fetchActiveQuestion();
     refreshAllLeaderboards();
 
