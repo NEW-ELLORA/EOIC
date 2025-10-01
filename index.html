@@ -6,6 +6,8 @@
   <title>Warrior Quiz Arena</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+  <!-- Chart.js for cool bar chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { box-sizing: border-box; }
     .warrior-bg { background: linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #CD853F 100%); }
@@ -46,7 +48,7 @@
             <input type="password" id="password" class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 focus:border-amber-600 focus:outline-none" placeholder="Enter password"/>
           </div>
 
-          <div class="flex space-x-4">
+        <div class="flex space-x-4">
             <button onclick="login('admin')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">🛡️ Admin</button>
             <button onclick="login('participant')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">⚔️ Warrior</button>
           </div>
@@ -62,14 +64,19 @@
     </div>
   </div>
 
-  <!-- Leaderboard Modal -->
+  <!-- Leaderboard Modal (compact list + animated bar chart) -->
   <div id="leaderboardModal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-2xl font-bold text-gray-800">🏆 Live Leaderboard</h2>
         <button onclick="closeLeaderboardModal()" class="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300">✖</button>
       </div>
-      <div id="loginLeaderboard" class="space-y-2"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div id="loginLeaderboard" class="space-y-2 overflow-y-auto max-h-[500px]"></div>
+        <div class="p-4 bg-gray-50 rounded-xl shadow-inner">
+          <canvas id="leaderboardChart" height="420"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -112,7 +119,7 @@
           </div>
         </div>
 
-        <!-- LIVE STATS + ADMIN LB -->
+        <!-- LIVE STATS + ADMIN LB + RESET -->
         <div class="space-y-6">
           <div class="bg-white rounded-2xl shadow-xl p-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Battle Statistics</h2>
@@ -143,6 +150,7 @@
                 <button onclick="adminRemoveParticipant(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg">🗑️ Remove</button>
                 <button onclick="adminRemoveParticipant(false)" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-lg">♻️ Restore</button>
               </div>
+              <button onclick="resetGame()" class="w-full bg-red-800 hover:bg-red-900 text-white font-bold py-2 rounded-lg mt-3">♻️ Reset Game</button>
               <div id="adminActionMsg" class="text-sm text-gray-600"></div>
             </div>
           </div>
@@ -242,7 +250,6 @@
     let presenceRoster = new Set(); // usernames currently online (from realtime)
 
     function joinPresence(usernameOrViewer){
-      // unsubscribe old
       if (presenceChannel) { try { presenceChannel.unsubscribe(); } catch {} }
       presenceRoster = new Set();
 
@@ -254,18 +261,13 @@
         .on('presence', { event: 'sync' }, () => {
           const state = presenceChannel.presenceState();
           const names = new Set();
-          Object.keys(state).forEach(key => {
-            // keys include our chosen "presence key" (username)
-            names.add(key);
-          });
+          Object.keys(state).forEach(key => { names.add(key); });
           presenceRoster = names;
           updateActiveParticipants();
-          // refresh boards so "Online" tag shows everywhere
           refreshAllLeaderboards();
         })
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            // announce we are here
             await presenceChannel.track({ at: new Date().toISOString() });
           }
         });
@@ -307,7 +309,6 @@
         document.getElementById('participantAvatar').textContent=gameState.participants[username].avatar;
       }
       saveState();
-      // join presence with our username so others see us online
       joinPresence(username);
       showDashboard(type); updateActiveParticipants(); fetchActiveQuestion(); refreshAllLeaderboards(); populateAdminSelect();
     }
@@ -332,7 +333,6 @@
       document.getElementById('participantDashboard').classList.add('hidden');
       document.getElementById('loginScreen').classList.remove('hidden');
       document.getElementById('username').value=''; document.getElementById('password').value='';
-      // rejoin presence as a viewer (anonymous observer) so we still see who is online
       joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
       updateActiveParticipants(); saveState(); refreshAllLeaderboards();
     }
@@ -488,7 +488,6 @@
           name:u,
           score,
           avatar: gameState.participants[u]?.avatar||'⚔️',
-          // ONLINE pulled from realtime presence for ALL boards
           online: presenceRoster.has(u)
         }))
         .sort((a,b)=>b.score-a.score);
@@ -496,11 +495,71 @@
       return rows;
     }
 
+    // colorful gradient palette
+    function makeBarColors(ctx, count){
+      const {chartArea} = ctx.chart;
+      const h = i => (i*360/Math.max(count,1));
+      const colors = [];
+      for(let i=0;i<count;i++){
+        const grad = ctx.createLinearGradient(chartArea.left, chartArea.bottom, chartArea.right, chartArea.top);
+        const hue = h(i);
+        grad.addColorStop(0, `hsl(${(hue+10)%360}, 90%, 65%)`);
+        grad.addColorStop(1, `hsl(${(hue-10+360)%360}, 90%, 55%)`);
+        colors.push(grad);
+      }
+      return colors;
+    }
+
+    let chartInstance = null;
+
     async function refreshAllLeaderboards(){
       const rows = await computeLeaderboard();
-      renderLeaderboard('loginLeaderboard', rows, false);
-      renderLeaderboard('adminLeaderboard', rows, false);
-      renderLeaderboard('participantLeaderboard', rows, false);
+      renderLeaderboard('loginLeaderboard', rows);
+      renderLeaderboard('adminLeaderboard', rows);
+      renderLeaderboard('participantLeaderboard', rows);
+
+      // Update chart if modal open
+      const canvas = document.getElementById('leaderboardChart');
+      if(canvas && !document.getElementById('leaderboardModal').classList.contains('hidden')){
+        const labels = rows.map(r=>r.name);
+        const scores = rows.map(r=>r.score);
+        const ctx = canvas.getContext('2d');
+        if(chartInstance) chartInstance.destroy();
+
+        chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Points',
+              data: scores,
+              borderWidth: 2,
+              borderRadius: 10,
+              borderColor: '#ffffff',
+              backgroundColor: (context)=>{
+                const {chart} = context;
+                const {chartArea} = chart;
+                if(!chartArea) return 'rgba(255,159,64,0.7)';
+                return makeBarColors(context, scores.length);
+              }
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 1200, easing: 'easeOutCubic' },
+            plugins: {
+              legend: { display: false },
+              tooltip: { backgroundColor: 'rgba(0,0,0,0.7)' }
+            },
+            scales: {
+              x: { ticks: { color: '#6b7280' }, grid: { display:false } },
+              y: { beginAtZero: true, ticks: { color: '#6b7280' } }
+            }
+          }
+        });
+      }
+
       if(gameState.userType==='participant' && gameState.currentUser){
         const me=rows.find(r=>r.name===gameState.currentUser);
         if(me) document.getElementById('participantScore').textContent=me.score;
@@ -517,7 +576,7 @@
         const me=p.name===gameState.currentUser && gameState.userType==='participant';
         const hl=me?'ring-2 ring-blue-500 bg-blue-50':'bg-gradient-to-r from-amber-50 to-orange-50';
         const jump=(prev[p.name] && prev[p.name]>(i+1))?'rank-jump':'';
-        return `<div class="flex items-center justify-between p-4 ${hl} ${jump} rounded-xl border border-amber-200">
+        return `<div class="flex items-center justify-between p-3 ${hl} ${jump} rounded-xl border border-amber-200">
           <div class="flex items-center space-x-4">
             <span class="text-2xl">${medal}</span>
             <span class="text-2xl">${p.avatar}</span>
@@ -527,8 +586,8 @@
             </div>
           </div>
           <div class="text-right">
-            <div class="text-2xl font-bold text-amber-600">${p.score}</div>
-            <div class="text-sm text-gray-600">points</div>
+            <div class="text-xl font-bold text-amber-600">${p.score}</div>
+            <div class="text-xs text-gray-600">points</div>
           </div>
         </div>`;
       }).join('');
@@ -549,7 +608,6 @@
     }
 
     function updateActiveParticipants(){
-      // Count based on realtime presence
       const count = Array.from(presenceRoster).filter(u => /^warrior[1-8]$/.test(u)).length;
       const el=document.getElementById('activeParticipants'); if(el) el.textContent=`${count} warriors online`;
     }
@@ -759,8 +817,30 @@
       gameState.setRunner.timerId = setTimeout(runNextInQueue, (item.timer||30)*1000 + 1000);
     }
 
+    // ===================== RESET GAME =====================
+    async function resetGame(){
+      if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and questions!")) return;
+      try {
+        await sb.from('answers').delete().neq('id', '');
+        await sb.from('questions').delete().neq('id', '');
+        await sb.from('score_adjustments').delete().neq('id', '');
+        await sb.from('participant_flags').delete().neq('username', '');
+        gameState.participants = {};
+        initializeParticipants();
+        await refreshAllLeaderboards();
+        alert("✅ Game has been reset!");
+      } catch (err) {
+        console.error(err);
+        alert("❌ Reset failed. Check Supabase policies.");
+      }
+    }
+
     // ===================== GLOBAL UI HELPERS =====================
-    function openLeaderboardModal(){ document.getElementById('leaderboardModal').classList.remove('hidden'); }
+    function openLeaderboardModal(){
+      document.getElementById('leaderboardModal').classList.remove('hidden');
+      // render chart after layout is visible so gradients compute with chartArea
+      setTimeout(refreshAllLeaderboards, 60);
+    }
     function closeLeaderboardModal(){ document.getElementById('leaderboardModal').classList.add('hidden'); }
 
     // Prevent the browser from opening files when dropped anywhere
@@ -771,7 +851,6 @@
     (function boot(){
       loadState(); initializeParticipants();
 
-      // Join presence immediately as a viewer (so the Login screen sees who’s online)
       if (gameState.userType && gameState.currentUser) joinPresence(gameState.currentUser);
       else joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
 
@@ -784,6 +863,5 @@
   </script>
 </body>
 </html>
-
 
 
