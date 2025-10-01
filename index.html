@@ -301,7 +301,7 @@
       document.getElementById('waitingArea').classList.remove('hidden');
     }
     updateCurrentQuestionStatus();
-    document.getElementById('fastestFinger')?.innerText = 'Waiting for answers...';
+    { const ff = document.getElementById('fastestFinger'); if (ff) ff.innerText = 'Waiting for answers...'; }
   }
 
   // Realtime subscription: get new questions and updates instantly
@@ -487,4 +487,3 @@
 </script>
 </body>
 </html>
-
