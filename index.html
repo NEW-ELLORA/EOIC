@@ -46,7 +46,7 @@
                 <button onclick="openLeaderboardModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300">🏆 View Leaderboard</button>
             </div>
             <div class="mt-6 text-sm text-amber-700 bg-amber-50 p-4 rounded-xl">
-                <p><strong>Admin:</strong> admin / admin123</p>
+                <p><strong>Admin:</strong> </p>
                 <p><strong>Warriors:</strong> warrior1-8 / battle123</p>
             </div>
         </div>
@@ -159,13 +159,26 @@
             <!-- Control -->
             <div class="bg-white rounded-2xl shadow-xl p-6">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">📸 Photo Sharing Control</h2>
-                <label class="flex items-center gap-3">
+
+                <label class="flex items-center gap-3 mb-3">
                     <input id="allowPhotoShare" type="checkbox" class="w-5 h-5"
-                           onchange="adminSetPhotoShareAllowed(this.checked)" />
+                           onchange="onAdminTogglePhotoShare(this.checked)" />
                     <span class="text-gray-800 font-semibold">Allow participants to share photos</span>
                 </label>
-                <p class="text-sm text-gray-600 mt-2">Toggle this on to let warriors open their camera and send a photo.</p>
-                <div id="photoToggleMsg" class="text-sm text-gray-600 mt-3"></div>
+
+                <div id="photoDurationRow" class="flex items-center gap-3 mb-2">
+                    <label class="text-sm text-gray-700">Auto stop after</label>
+                    <select id="photoDuration" class="px-2 py-1 border rounded-lg">
+                        <option value="1">1 min</option>
+                        <option value="3" selected>3 min</option>
+                        <option value="5">5 min</option>
+                        <option value="10">10 min</option>
+                        <option value="0">No auto stop</option>
+                    </select>
+                </div>
+
+                <div class="text-sm text-gray-600 mt-1" id="photoToggleMsg"></div>
+                <div class="text-sm text-amber-700 mt-1" id="photoCountdown"></div>
             </div>
             <!-- Inbox -->
             <div class="bg-white rounded-2xl shadow-xl p-6 lg:col-span-2">
@@ -201,7 +214,6 @@
             </div>
         </div>
 
-        <!-- Question area -->
         <div id="questionArea" class="bg-white rounded-2xl shadow-2xl p-8 mb-6 hidden">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">Battle Question</h2>
@@ -226,13 +238,12 @@
             <p class="text-gray-600">Waiting for the next question from the battle master...</p>
         </div>
 
-        <!-- ==== PHOTO SHARING: Participant Uploader (shows only when allowed) ==== -->
+        <!-- ==== PHOTO SHARING: Participant Uploader ==== -->
         <div id="photoShareCard" class="mt-6 bg-white rounded-2xl shadow-xl p-6 hidden">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">📸 Share a Battle Photo</h2>
             <p class="text-gray-600 mb-3">The battle master has opened photo sharing. Snap a pic and send it!</p>
 
             <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                <!-- On mobile, this opens the camera -->
                 <input id="photoInput" type="file" accept="image/*" capture="environment"
                        class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200"/>
                 <button onclick="uploadParticipantPhoto()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-lg">Upload</button>
@@ -259,14 +270,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ===================== STATE =====================
-const STORAGE_KEY = 'warriorQuizState_v8';
+const STORAGE_KEY = 'warriorQuizState_v9';
 const SETS_KEY = 'warriorQuizSets_v2';
 const LAST_SET_KEY = 'warriorQuizLastSetName';
-const SETS_TABLE = 'question_sets'; // shared DB table
+const SETS_TABLE = 'question_sets';
 
-// ==== PHOTO SHARING (constants)
-const PHOTO_TOGGLE_TABLE = 'photo_share_toggle'; // id:int(1), allowed:bool
-const PHOTO_SHARES_TABLE = 'photo_shares';       // username,text url,timestamp
+const PHOTO_TOGGLE_TABLE = 'photo_share_toggle';
+const PHOTO_SHARES_TABLE = 'photo_shares';
 const PHOTO_BUCKET = 'battle_photos';
 
 let gameState = {
@@ -279,11 +289,14 @@ let gameState = {
     setRunner: { running:false, queue:[], cursor:0, timerId:null },
     // photo sharing
     photoShareAllowed: false,
+    photoShareExpiresAt: null, // ms timestamp
     photos: []
 };
+let photoCountdownTimerId = null;
+
 const warriorAvatars = ['🏹','⚔️','🛡️','🗡️','🏺','🎯','⚡','🔥'];
 const credentials = {
-    admin: { username: 'admin', password: 'admin123' },
+    admin: { username: 'admin', password: 'Thunder4554' },
     participants: {
         warrior1:'battle123', warrior2:'battle123', warrior3:'battle123', warrior4:'battle123',
         warrior5:'battle123', warrior6:'battle123', warrior7:'battle123', warrior8:'battle123'
@@ -294,9 +307,7 @@ const credentials = {
 let presenceChannel = null;
 let presenceRoster = new Set();
 function joinPresence(usernameOrViewer){
-    if (presenceChannel) {
-        try { presenceChannel.unsubscribe(); } catch {}
-    }
+    if (presenceChannel) { try { presenceChannel.unsubscribe(); } catch {} }
     presenceRoster = new Set();
     presenceChannel = sb.channel('arena-presence', { config: { presence: { key: usernameOrViewer } } });
     presenceChannel
@@ -322,7 +333,8 @@ function saveState(){
         userType:gameState.userType,
         participants:gameState.participants,
         prevRanks:gameState.prevRanks,
-        photoShareAllowed:gameState.photoShareAllowed
+        photoShareAllowed:gameState.photoShareAllowed,
+        photoShareExpiresAt:gameState.photoShareExpiresAt
     }));
 }
 function loadState(){
@@ -334,6 +346,7 @@ function loadState(){
         gameState.participants=s.participants||{};
         gameState.prevRanks=s.prevRanks||{};
         gameState.photoShareAllowed=!!s.photoShareAllowed;
+        gameState.photoShareExpiresAt = s.photoShareExpiresAt ?? null;
     }catch{}
 }
 function initializeParticipants(){
@@ -343,7 +356,7 @@ function initializeParticipants(){
     });
 }
 
-// ===================== LOGIN (persistent) =====================
+// ===================== LOGIN =====================
 function login(type){
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
@@ -441,6 +454,7 @@ function clearQuestionUI(){
     if(ff) ff.innerText='Waiting for answers...';
 }
 
+// Realtime
 sb.channel('answers-live').on('postgres_changes',{event:'*',schema:'public',table:'answers'}, refreshAllLeaderboards).subscribe();
 sb.channel('adjustments-live').on('postgres_changes',{event:'*',schema:'public',table:'score_adjustments'}, refreshAllLeaderboards).subscribe();
 sb.channel('flags-live').on('postgres_changes',{event:'*',schema:'public',table:'participant_flags'}, refreshAllLeaderboards).subscribe();
@@ -448,14 +462,14 @@ sb.channel('questions-live')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'questions'}, (p)=>{
         const q=p.new; if(!q.ended && new Date(q.ends_at)>new Date()) setCurrentQuestion(q);
     })
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'questions'}, (p)=>{
+    .on('postgres_changes',{event:'*',schema:'public',table:'questions'}, (p)=>{
         const q=p.new;
-        if(q.ended || new Date(q.ends_at)<=new Date()) clearQuestionUI();
+        if(!q || q.ended || new Date(q.ends_at)<=new Date()) clearQuestionUI();
         else setCurrentQuestion(q);
     })
     .subscribe();
 
-setInterval(refreshAllLeaderboards, 3000); // safety refresh
+setInterval(refreshAllLeaderboards, 3000);
 
 // ===================== PARTICIPANT VIEW =====================
 const isDirectImageUrl = (u) => /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u||'');
@@ -618,7 +632,6 @@ async function refreshAllLeaderboards(){
     renderLeaderboard('adminLeaderboard', rows);
     renderLeaderboard('participantLeaderboard', rows);
 
-    // Update chart if modal open
     const canvas = document.getElementById('leaderboardChart');
     if(canvas && !document.getElementById('leaderboardModal').classList.contains('hidden')){
         const labels = rows.map(r=>r.name);
@@ -703,7 +716,7 @@ async function updateFastestFinger(){
 function updateCurrentQuestionStatus(){
     const el = document.getElementById('currentQuestionStatus');
     if(!el) return;
-    if(gameState.currentQuestion) return; // handled by fastestfinger
+    if(gameState.currentQuestion) return;
     el.textContent = 'No active question';
 }
 function updateActiveParticipants(){
@@ -744,10 +757,8 @@ function msg(t,bad=false){
     el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
 }
 
-// ===================== SET BUILDER (shared DB + fallback to local) =====================
-function getBlankQuestion(){
-    return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' };
-}
+// ===================== SET BUILDER =====================
+function getBlankQuestion(){ return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' }; }
 function createFreshSet(){
     document.getElementById('setName').value = 'New Set ' + new Date().toLocaleTimeString();
     const wrap=document.getElementById('setQuestions');
@@ -803,13 +814,12 @@ function collectSetFromUI(){
 }
 async function saveCurrentSet(){
     const set=collectSetFromUI();
-    // Try DB first
     let savedToDb = false;
     try{
         const { error } = await sb.from(SETS_TABLE).upsert({ name:set.name, items:set.items }).select('name').single();
         if(!error) savedToDb = true;
     }catch(e){}
-    if(!savedToDb){ // Fallback to local
+    if(!savedToDb){
         const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
         const idx=list.findIndex(s=>s.name===set.name);
         if(idx>=0) list[idx]=set; else list.push(set);
@@ -821,12 +831,10 @@ async function saveCurrentSet(){
 }
 async function loadSavedSetsDropdown(selectedName){
     let names = [];
-    // Try DB
     try{
         const { data, error } = await sb.from(SETS_TABLE).select('name').order('updated_at', { ascending:false });
         if(!error && data){ names = data.map(x=>x.name); }
     }catch(e){}
-    // Fallback to local if empty
     if(!names.length){
         const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
         names = list.map(s=>s.name);
@@ -840,12 +848,10 @@ async function loadSelectedSet(){
     const sel=document.getElementById('savedSets');
     const name=sel.value;
     let set = null;
-    // Try DB
     try{
         const { data, error } = await sb.from(SETS_TABLE).select('items').eq('name', name).maybeSingle();
         if(!error && data){ set = { name, items: data.items }; }
     }catch(e){}
-    // Fallback to local
     if(!set){
         const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
         set = list.find(s=>s.name===name);
@@ -857,7 +863,6 @@ async function loadSelectedSet(){
     const wrap=document.getElementById('setQuestions');
     wrap.innerHTML='';
     set.items.forEach(item=>addQuestionRow(item));
-    // Warn if any image URL isn’t direct
     const bad = set.items.filter(i=>i.image_url && !isDirectImageUrl(i.image_url)).length;
     if(bad) document.getElementById('imageTip').innerHTML = `⚠️ ${bad} image link(s) look like pages, not images. Paste a direct image URL ending in .png/.jpg/.jpeg/.gif/.webp.`;
     else document.getElementById('imageTip').textContent = 'Tip: Paste a direct image URL ending in .png, .jpg, .jpeg, .gif, or .webp.';
@@ -868,9 +873,7 @@ async function loadSelectedSet(){
 async function startSetRun(){
     const { name, items } = collectSetFromUI();
     if(items.length===0){ alert('Add some questions first'); return; }
-
     await sb.from('questions').update({ ended:true }).eq('ended', false);
-
     gameState.setRunner.running=true;
     gameState.setRunner.queue=items;
     gameState.setRunner.cursor=0;
@@ -892,7 +895,6 @@ async function runNextInQueue(){
     }
     const item = gameState.setRunner.queue[i];
     const start = new Date();
-    // Added 500ms buffer to compensate for network latency
     const ends = new Date(start.getTime() + (item.timer||30)*1000 + 500);
 
     if(item.image_url && !isDirectImageUrl(item.image_url)){
@@ -925,11 +927,8 @@ async function runNextInQueue(){
 async function resetGame(){
     if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and active questions!")) return;
     try {
-        // Call a single RPC function to perform deletes with elevated privileges
         const { error } = await sb.rpc('reset_game_tables');
         if (error) throw error;
-
-        // Clear local UI scores immediately
         document.getElementById('participantScore').textContent = '0';
         gameState.prevRanks = {};
         gameState.currentQuestion = null;
@@ -944,204 +943,309 @@ async function resetGame(){
 }
 
 /* ===================== PHOTO SHARING ===================== */
-/** Admin: set allowed on/off (persists in table) */
-async function adminSetPhotoShareAllowed(allowed){
+/** Admin UI handler: reads duration and calls save */
+async function onAdminTogglePhotoShare(checked){
+  const minutes = parseInt(document.getElementById('photoDuration').value || '0', 10);
+  await adminSetPhotoShareAllowed(checked, minutes);
+}
+
+/** Core save: allowed + optional expires_at; UPDATE-first then INSERT */
+async function adminSetPhotoShareAllowed(allowed, minutes=0){
   try{
-    // Try UPDATE first
+    let expires_at = null;
+    if(allowed && minutes > 0){
+      expires_at = new Date(Date.now() + minutes*60*1000).toISOString();
+    }
+
     const { data: updData, error: updErr } = await sb
-      .from('photo_share_toggle')
-      .update({ allowed })
+      .from(PHOTO_TOGGLE_TABLE)
+      .update({ allowed, expires_at })
       .eq('id', 1)
       .select('id');
 
-    // If no row was updated, insert the control row once
-    if (!updErr && (!updData || updData.length === 0)) {
+    if (updErr || (updData && updData.length===0)) {
       const { error: insErr } = await sb
-        .from('photo_share_toggle')
-        .insert({ id: 1, allowed });
+        .from(PHOTO_TOGGLE_TABLE)
+        .insert({ id: 1, allowed, expires_at });
       if (insErr) throw insErr;
-    } else if (updErr) {
-      throw updErr;
     }
 
     gameState.photoShareAllowed = !!allowed;
+    gameState.photoShareExpiresAt = expires_at ? new Date(expires_at).getTime() : null;
+
     applyPhotoShareVisibility();
-    document.getElementById('photoToggleMsg').textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
+    renderPhotoCountdown();
+    const msgEl = document.getElementById('photoToggleMsg');
+    if(msgEl) msgEl.textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
+
+    scheduleLocalAutoStop();
     saveState();
   }catch(e){
     console.error('toggle failed', e);
     const msg = document.getElementById('photoToggleMsg');
     if (msg) msg.textContent = '❌ Failed to update toggle.';
     const cb=document.getElementById('allowPhotoShare');
-    if(cb) cb.checked = gameState.photoShareAllowed;
+    if(cb) cb.checked = !!gameState.photoShareAllowed;
   }
 }
-/** Read current allowed flag */
+
+/** Read current allowed flag + expiry */
 async function fetchPhotoShareAllowed(){
-    try{
-        const { data, error } = await sb.from(PHOTO_TOGGLE_TABLE).select('allowed').eq('id',1).maybeSingle();
-        if(error) throw error;
-        const allowed = !!(data && data.allowed);
-        gameState.photoShareAllowed = allowed;
-        const cb=document.getElementById('allowPhotoShare');
-        if(cb) cb.checked = allowed;
-        applyPhotoShareVisibility();
-        const tmsg=document.getElementById('photoToggleMsg');
-        if(tmsg) tmsg.textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
-        saveState();
-    }catch(e){
-        console.warn('fetchPhotoShareAllowed', e);
-        // keep local state fallback
-        const cb=document.getElementById('allowPhotoShare');
-        if(cb) cb.checked = gameState.photoShareAllowed;
-        applyPhotoShareVisibility();
-    }
+  try{
+    const { data, error } = await sb
+      .from(PHOTO_TOGGLE_TABLE)
+      .select('allowed, expires_at')
+      .eq('id',1)
+      .maybeSingle();
+    if(error) throw error;
+
+    const now = Date.now();
+    const expiresAtMs = data?.expires_at ? new Date(data.expires_at).getTime() : null;
+    const effectiveAllowed = !!data?.allowed && (!expiresAtMs || expiresAtMs > now);
+
+    gameState.photoShareAllowed = effectiveAllowed;
+    gameState.photoShareExpiresAt = expiresAtMs;
+
+    const cb = document.getElementById('allowPhotoShare');
+    if(cb) cb.checked = effectiveAllowed;
+
+    applyPhotoShareVisibility();
+    renderPhotoCountdown();
+    const tmsg=document.getElementById('photoToggleMsg');
+    if(tmsg) tmsg.textContent = effectiveAllowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
+
+    scheduleLocalAutoStop();
+    saveState();
+  }catch(e){
+    console.warn('fetchPhotoShareAllowed', e);
+    const cb=document.getElementById('allowPhotoShare');
+    if(cb) cb.checked = !!gameState.photoShareAllowed;
+    applyPhotoShareVisibility();
+    renderPhotoCountdown();
+  }
 }
-/** Show/hide participant card based on flag + role */
+
+/** Show/hide participant card based on flag + expiry + role */
 function applyPhotoShareVisibility(){
-    const card=document.getElementById('photoShareCard');
-    if(!card) return;
-    const show = (gameState.userType==='participant') && gameState.photoShareAllowed;
-    card.classList.toggle('hidden', !show);
+  const card=document.getElementById('photoShareCard');
+  if(!card) return;
+  const now = Date.now();
+  const allowed = gameState.photoShareAllowed &&
+                  (!gameState.photoShareExpiresAt || gameState.photoShareExpiresAt > now);
+  const show = (gameState.userType==='participant') && allowed;
+  card.classList.toggle('hidden', !show);
 }
-/** Participant: upload selected photo to Storage, then log in table */
+
+/** Countdown + local auto-stop */
+function renderPhotoCountdown(){
+  const el = document.getElementById('photoCountdown');
+  const row = document.getElementById('photoDurationRow');
+  if(!el) return;
+
+  if(row) row.classList.toggle('hidden', !!gameState.photoShareAllowed);
+
+  if(!gameState.photoShareAllowed || !gameState.photoShareExpiresAt){
+    el.textContent = '';
+    clearInterval(photoCountdownTimerId);
+    photoCountdownTimerId = null;
+    return;
+  }
+
+  function tick(){
+    const ms = gameState.photoShareExpiresAt - Date.now();
+    if(ms <= 0){
+      el.textContent = '⏳ Auto stop reached.';
+      clearInterval(photoCountdownTimerId);
+      photoCountdownTimerId = null;
+      adminSetPhotoShareAllowed(false, 0);
+      return;
+    }
+    const m = Math.floor(ms/60000);
+    const s = Math.floor((ms%60000)/1000);
+    el.textContent = `⏳ Auto stop in ${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  tick();
+  clearInterval(photoCountdownTimerId);
+  photoCountdownTimerId = setInterval(tick, 1000);
+}
+function scheduleLocalAutoStop(){
+  if(gameState.photoShareExpiresAt && Date.now() >= gameState.photoShareExpiresAt){
+    if(gameState.photoShareAllowed){
+      adminSetPhotoShareAllowed(false, 0);
+    }
+    return;
+  }
+}
+
+/** Participant: upload photo -> Storage -> DB (also store path) */
 async function uploadParticipantPhoto(){
-    if(!gameState.photoShareAllowed){
-        setPhotoMsg('Photo sharing is currently disabled by the admin.', true);
-        return;
-    }
-    const input = document.getElementById('photoInput');
-    if(!input || !input.files || !input.files[0]){
-        setPhotoMsg('Please choose a photo first.', true);
-        return;
-    }
-    const file = input.files[0];
-    // Basic validations
-    if(!file.type.startsWith('image/')){ setPhotoMsg('File must be an image.', true); return; }
-    if(file.size > 5*1024*1024){ setPhotoMsg('Max size is 5MB.', true); return; }
+  if(!gameState.photoShareAllowed){
+      setPhotoMsg('Photo sharing is currently disabled by the admin.', true);
+      return;
+  }
+  const input = document.getElementById('photoInput');
+  if(!input || !input.files || !input.files[0]){
+      setPhotoMsg('Please choose a photo first.', true);
+      return;
+  }
+  const file = input.files[0];
+  if(!file.type.startsWith('image/')){ setPhotoMsg('File must be an image.', true); return; }
+  if(file.size > 5*1024*1024){ setPhotoMsg('Max size is 5MB.', true); return; }
 
-    // Preview
-    const preview = document.getElementById('photoPreview');
-    preview.src = URL.createObjectURL(file);
-    preview.classList.remove('hidden');
+  const preview = document.getElementById('photoPreview');
+  preview.src = URL.createObjectURL(file);
+  preview.classList.remove('hidden');
 
-    const uname = gameState.currentUser || 'anonymous';
-    const ts = new Date().toISOString().replace(/[:.]/g,'-');
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `photos/${encodeURIComponent(uname)}/${ts}.${ext}`;
+  const uname = gameState.currentUser || 'anonymous';
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `photos/${encodeURIComponent(uname)}/${ts}.${ext}`;
 
-    setPhotoMsg('Uploading...');
+  setPhotoMsg('Uploading...');
 
-    try{
-        // Upload to Storage
-        const { error: upErr } = await sb.storage.from(PHOTO_BUCKET).upload(path, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: file.type
-        });
-        if(upErr) throw upErr;
+  try{
+      const { error: upErr } = await sb.storage.from(PHOTO_BUCKET).upload(path, file, {
+          cacheControl: '3600', upsert: false, contentType: file.type
+      });
+      if(upErr) throw upErr;
 
-        // Get public URL
-        const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
-        const publicUrl = pub?.publicUrl;
-        if(!publicUrl) throw new Error('Could not get public URL');
+      const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+      const publicUrl = pub?.publicUrl;
+      if(!publicUrl) throw new Error('Could not get public URL');
 
-        // Insert DB row
-        const { error: insErr } = await sb.from(PHOTO_SHARES_TABLE).insert({
-            username: uname,
-            url: publicUrl
-        });
-        if(insErr) throw insErr;
+      const { error: insErr } = await sb.from(PHOTO_SHARES_TABLE).insert({
+          username: uname,
+          url: publicUrl,
+          path: path
+      });
+      if(insErr) throw insErr;
 
-        setPhotoMsg('✅ Sent! The battle master can see your photo.');
-        // Reset file input
-        input.value = '';
-    }catch(e){
-        console.error('uploadParticipantPhoto', e);
-        setPhotoMsg('❌ Upload failed. Please try again.', true);
-    }
+      setPhotoMsg('✅ Sent! The battle master can see your photo.');
+      input.value = '';
+  }catch(e){
+      console.error('uploadParticipantPhoto', e);
+      setPhotoMsg('❌ Upload failed. Please try again.', true);
+  }
 }
-function setPhotoMsg(t, bad=false){
-    const el=document.getElementById('photoShareMsg');
-    if(!el) return;
-    el.textContent=t;
-    el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
+function setPhotoMsg(t,bad=false){
+  const el=document.getElementById('photoShareMsg');
+  if(!el) return;
+  el.textContent=t;
+  el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
 }
+
 /** Admin: load inbox */
 async function refreshPhotoInbox(){
-    const inbox=document.getElementById('photoInbox');
+  const inbox=document.getElementById('photoInbox');
+  const countEl=document.getElementById('photoCount');
+  const msg=document.getElementById('photoInboxMsg');
+  if(!inbox) return;
+  try{
+      const { data, error } = await sb.from(PHOTO_SHARES_TABLE)
+          .select('id,username,url,path,created_at')
+          .order('created_at', { ascending:false })
+          .limit(200);
+      if(error) throw error;
+      gameState.photos = data || [];
+      inbox.innerHTML = (data||[]).map(row=>{
+          const dt = new Date(row.created_at);
+          const when = dt.toLocaleString();
+          const u = escapeHtml(row.username);
+          const src = escapeHtml(row.url);
+          const pid = row.id;
+          const path = row.path || '';
+          return `
+          <div id="photo-card-${pid}" class="border rounded-xl overflow-hidden shadow-sm">
+              <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
+              <div class="p-3 flex items-center justify-between">
+                  <div>
+                      <div class="font-semibold text-gray-800">${u}</div>
+                      <div class="text-xs text-gray-500">${when}</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                      <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
+                      <button onclick="adminDeletePhoto('${pid}', '${encodeURIComponent(path)}')"
+                              class="text-sm text-red-600 hover:text-red-700">🗑️ Delete</button>
+                  </div>
+              </div>
+          </div>`;
+      }).join('');
+      if(countEl) countEl.textContent = `(${(data||[]).length})`;
+      if(msg) msg.textContent = (data && data.length)? '' : 'No photos yet.';
+  }catch(e){
+      console.error('refreshPhotoInbox', e);
+      if(msg) msg.textContent = '❌ Failed to load photos.';
+  }
+}
+
+/** Admin: delete photo (Storage + DB) */
+async function adminDeletePhoto(id, pathEnc){
+  const inboxMsg = document.getElementById('photoInboxMsg');
+  const path = decodeURIComponent(pathEnc || '');
+  try{
+    if(path){
+      const { error: delErr } = await sb.storage.from(PHOTO_BUCKET).remove([path]);
+      if(delErr) throw delErr;
+    }
+    const { error: dbErr } = await sb.from(PHOTO_SHARES_TABLE).delete().eq('id', id);
+    if(dbErr) throw dbErr;
+
+    const card = document.getElementById(`photo-card-${id}`);
+    if(card) card.remove();
+    gameState.photos = (gameState.photos||[]).filter(p=>p.id!==id);
+
     const countEl=document.getElementById('photoCount');
-    const msg=document.getElementById('photoInboxMsg');
-    if(!inbox) return;
-    try{
-        const { data, error } = await sb.from(PHOTO_SHARES_TABLE)
-            .select('id,username,url,created_at')
-            .order('created_at', { ascending:false })
-            .limit(200);
-        if(error) throw error;
-        gameState.photos = data || [];
-        inbox.innerHTML = (data||[]).map(row=>{
+    if(countEl) countEl.textContent = `(${gameState.photos.length})`;
+    if(inboxMsg) inboxMsg.textContent = '';
+  }catch(e){
+    console.error('adminDeletePhoto', e);
+    if(inboxMsg) inboxMsg.textContent = '❌ Delete failed.';
+  }
+}
+
+/** Realtime for toggle + inbox */
+function initPhotoSharingRealtime(){
+  sb.channel('photo-toggle-rt')
+    .on('postgres_changes', { event:'*', schema:'public', table: PHOTO_TOGGLE_TABLE }, () => {
+        fetchPhotoShareAllowed();
+    })
+    .subscribe();
+
+  sb.channel('photo-shares-rt')
+    .on('postgres_changes', { event:'INSERT', schema:'public', table: PHOTO_SHARES_TABLE }, (payload) => {
+        const row = payload.new;
+        gameState.photos.unshift(row);
+        const inbox=document.getElementById('photoInbox');
+        const countEl=document.getElementById('photoCount');
+        if(inbox){
             const dt = new Date(row.created_at);
             const when = dt.toLocaleString();
             const u = escapeHtml(row.username);
             const src = escapeHtml(row.url);
-            return `
-            <div class="border rounded-xl overflow-hidden shadow-sm">
-                <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
-                <div class="p-3 flex items-center justify-between">
-                    <div>
-                        <div class="font-semibold text-gray-800">${u}</div>
-                        <div class="text-xs text-gray-500">${when}</div>
-                    </div>
-                    <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
+            const pid = row.id;
+            const path = row.path || '';
+            const card = document.createElement('div');
+            card.id = `photo-card-${pid}`;
+            card.className='border rounded-xl overflow-hidden shadow-sm';
+            card.innerHTML = `
+              <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
+              <div class="p-3 flex items-center justify-between">
+                <div>
+                  <div class="font-semibold text-gray-800">${u}</div>
+                  <div class="text-xs text-gray-500">${when}</div>
                 </div>
-            </div>`;
-        }).join('');
-        if(countEl) countEl.textContent = `(${(data||[]).length})`;
-        if(msg) msg.textContent = (data && data.length)? '' : 'No photos yet.';
-    }catch(e){
-        console.error('refreshPhotoInbox', e);
-        if(msg) msg.textContent = '❌ Failed to load photos.';
-    }
-}
-/** Realtime wires for toggle + inbox */
-function initPhotoSharingRealtime(){
-    // Toggle
-    sb.channel('photo-toggle-rt')
-      .on('postgres_changes', { event:'*', schema:'public', table: PHOTO_TOGGLE_TABLE }, () => {
-          fetchPhotoShareAllowed();
-      })
-      .subscribe();
-
-    // Inbox live
-    sb.channel('photo-shares-rt')
-      .on('postgres_changes', { event:'INSERT', schema:'public', table: PHOTO_SHARES_TABLE }, (payload) => {
-          // Prepend newest card without full refresh
-          const row = payload.new;
-          gameState.photos.unshift(row);
-          const inbox=document.getElementById('photoInbox');
-          const countEl=document.getElementById('photoCount');
-          if(inbox){
-              const dt = new Date(row.created_at);
-              const when = dt.toLocaleString();
-              const u = escapeHtml(row.username);
-              const src = escapeHtml(row.url);
-              const card = document.createElement('div');
-              card.className='border rounded-xl overflow-hidden shadow-sm';
-              card.innerHTML = `
-                <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
-                <div class="p-3 flex items-center justify-between">
-                    <div>
-                        <div class="font-semibold text-gray-800">${u}</div>
-                        <div class="text-xs text-gray-500">${when}</div>
-                    </div>
-                    <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
-                </div>`;
-              inbox.prepend(card);
-          }
-          if(countEl) countEl.textContent = `(${gameState.photos.length})`;
-      })
-      .subscribe();
+                <div class="flex items-center gap-3">
+                  <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
+                  <button onclick="adminDeletePhoto('${pid}', '${encodeURIComponent(path)}')"
+                          class="text-sm text-red-600 hover:text-red-700">🗑️ Delete</button>
+                </div>
+              </div>`;
+            inbox.prepend(card);
+        }
+        if(countEl) countEl.textContent = `(${gameState.photos.length})`;
+    })
+    .subscribe();
 }
 /* =================== /PHOTO SHARING =================== */
 
@@ -1164,17 +1268,15 @@ function closeLeaderboardModal(){
     if(gameState.userType){
         showDashboard(gameState.userType);
     }
-    loadSavedSetsDropdown(); // loads shared (DB) names or falls back to local
+    loadSavedSetsDropdown();
     populateAdminSelect();
     fetchActiveQuestion();
     refreshAllLeaderboards();
 
-    // Photo sharing boot (even on login screen so admin sees correct toggle after login)
     initPhotoSharingRealtime();
     fetchPhotoShareAllowed();
     refreshPhotoInbox();
 
-    // Preview selected photo instantly
     const input = document.getElementById('photoInput');
     if(input){
         input.addEventListener('change', ()=>{
@@ -1196,4 +1298,5 @@ function closeLeaderboardModal(){
 </script>
 </body>
 </html>
+
 
