@@ -1,499 +1,612 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Quiz App – Admin & Participants</title>
-  <style>
-    :root{
-      --bg:#0f172a;/*slate-900*/
-      --panel:#111827;/*gray-900*/
-      --muted:#1f2937;/*gray-800*/
-      --text:#e5e7eb;/*gray-200*/
-      --sub:#9ca3af;/*gray-400*/
-      --brand:#22d3ee;/*cyan-400*/
-      --ok:#34d399;/*emerald*/
-      --warn:#fbbf24;/*amber*/
-      --bad:#f87171;/*red*/
-    }
-    *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(180deg,#0b1220,#0f172a 35%);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;}
-    .wrap{max-width:1100px;margin:0 auto;padding:24px}
-    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px}
-    .badge{background:var(--muted);color:var(--sub);border:1px solid #334155;border-radius:999px;padding:6px 10px;font-size:12px}
-    .card{background:radial-gradient(1200px 600px at 100% -100%,rgba(34,211,238,0.08),transparent 55%),linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.02));border:1px solid #374151;border-radius:18px;padding:18px}
-    h1,h2,h3{margin:4px 0 10px}
-    h1{font-size:22px}
-    h2{font-size:18px}
-    .grid{display:grid;gap:16px}
-    .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .muted{color:var(--sub)}
-    input,select,textarea,button{font:inherit}
-    input[type=text],input[type=number],input[type=password],textarea,select{width:100%;background:#0b1020;border:1px solid #334155;border-radius:12px;color:var(--text);padding:10px}
-    textarea{min-height:70px}
-    button{background:linear-gradient(180deg,#22d3ee,#0ea5b3);border:none;border-radius:12px;padding:10px 14px;color:#042025;font-weight:700;cursor:pointer}
-    button.ghost{background:transparent;border:1px solid #334155;color:var(--text)}
-    button.warn{background:linear-gradient(180deg,#fbbf24,#d97706);color:#1f1300}
-    button.bad{background:linear-gradient(180deg,#f87171,#dc2626);color:#2a0909}
-    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    .pill{padding:4px 8px;border-radius:999px;border:1px solid #374151;color:var(--sub);font-size:12px}
-    .timer{font-variant-numeric:tabular-nums;font-size:28px;font-weight:800}
-    .list{display:grid;gap:8px;margin-top:8px}
-    .option{display:flex;gap:10px;align-items:center;border:1px solid #334155;border-radius:12px;padding:10px;background:#0b1020}
-    .option input{transform:scale(1.2)}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:8px;border-bottom:1px solid #1f2937;text-align:left}
-    .ok{color:var(--ok)}
-    .badc{color:var(--bad)}
-    .warnc{color:var(--warn)}
-    .small{font-size:12px}
-    .center{text-align:center}
-    .hidden{display:none}
-    .hr{height:1px;background:#1f2937;margin:8px 0}
-    .tip{font-size:12px;color:#a3a3a3}
-    .tag{background:#052329;border:1px solid #124a54;color:#9ee7f6;padding:4px 8px;border-radius:999px;font-size:12px}
-    .score{font-weight:800}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warrior Quiz Arena - Ancient Indian Battle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .warrior-bg {
+            background: linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #CD853F 100%);
+        }
+        
+        .ancient-pattern {
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(255, 215, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(255, 69, 0, 0.1) 0%, transparent 50%);
+        }
+        
+        .weapon-shadow {
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+        }
+        
+        .timer-ring {
+            stroke-dasharray: 283;
+            stroke-dashoffset: 283;
+            transition: stroke-dashoffset 1s linear;
+        }
+    </style>
 </head>
-<body>
-  <div class="wrap">
-    <header>
-      <div class="row">
-        <h1>⚡ Quiz Control</h1>
-        <span class="badge" id="appStatus">idle</span>
-      </div>
-      <div class="row small">
-        <span class="pill">Max 8 participants</span>
-        <span class="pill">Fastest Finger + Leaderboard</span>
-        <span class="pill">Per‑question timer</span>
-      </div>
-    </header>
-
-    <!-- LOGIN SWITCHER -->
-    <div class="card" id="loginCard">
-      <h2>Login</h2>
-      <div class="grid grid-2">
-        <div>
-          <h3>Admin</h3>
-          <div class="grid">
-            <input id="adminUser" placeholder="username (default: admin)" value="admin" />
-            <input id="adminPass" type="password" placeholder="password (default: quiz123)" value="quiz123" />
-            <button id="adminLogin">Login as Admin</button>
-          </div>
-          <p class="tip">Default admin credentials are built‑in. Change in code if needed.</p>
+<body class="warrior-bg ancient-pattern min-h-screen">
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-gradient-to-br from-amber-100 to-orange-100 rounded-3xl shadow-2xl p-8 max-w-md w-full border-4 border-amber-600">
+            <div class="text-center mb-8">
+                <div class="text-6xl mb-4">⚔️</div>
+                <h1 class="text-3xl font-bold text-amber-900 mb-2">Warrior Quiz Arena</h1>
+                <p class="text-amber-700">Enter the Ancient Battle</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-amber-800 font-semibold mb-2">Username</label>
+                    <input type="text" id="username" class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 focus:border-amber-600 focus:outline-none" placeholder="Enter username">
+                </div>
+                
+                <div>
+                    <label class="block text-amber-800 font-semibold mb-2">Password</label>
+                    <input type="password" id="password" class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 focus:border-amber-600 focus:outline-none" placeholder="Enter password">
+                </div>
+                
+                <div class="flex space-x-4">
+                    <button onclick="login('admin')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">
+                        🛡️ Admin
+                    </button>
+                    <button onclick="login('participant')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">
+                        ⚔️ Warrior
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-6 text-sm text-amber-700 bg-amber-50 p-4 rounded-xl">
+                <p><strong>Admin:</strong> admin / admin123</p>
+                <p><strong>Warriors:</strong> warrior1-8 / battle123</p>
+            </div>
         </div>
-        <div>
-          <h3>Participant</h3>
-          <div class="grid">
-            <select id="pUser"></select>
-            <input id="pPass" type="password" placeholder="participant password" />
-            <button id="pLogin">Login as Participant</button>
-          </div>
-          <p class="tip">Pick one of the 8 built‑in participant accounts. An account can be used by only one device/tab at a time.</p>
-        </div>
-      </div>
     </div>
 
-    <!-- ADMIN PANEL -->
-    <div class="card hidden" id="adminPanel">
-      <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <h2>Admin Console</h2>
-        <div class="row">
-          <span id="adminUserLabel" class="tag"></span>
-          <button class="ghost" id="logoutAdmin">Logout</button>
-        </div>
-      </div>
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="hidden min-h-screen p-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="bg-gradient-to-r from-red-800 to-red-600 rounded-2xl p-6 mb-6 text-white">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold flex items-center">
+                            🛡️ Admin Command Center
+                        </h1>
+                        <p class="text-red-200">Control the Ancient Battle Arena</p>
+                    </div>
+                    <button onclick="logout()" class="bg-red-900 hover:bg-red-800 px-4 py-2 rounded-lg transition-colors">
+                        Logout
+                    </button>
+                </div>
+            </div>
 
-      <div class="grid grid-2">
-        <div>
-          <h3>Create Question</h3>
-          <div class="grid">
-            <input id="qTitle" placeholder="Question title" />
-            <textarea id="qText" placeholder="Enter full question text"></textarea>
-            <div class="grid">
-              <input id="opt0" placeholder="Option A" />
-              <input id="opt1" placeholder="Option B" />
-              <input id="opt2" placeholder="Option C" />
-              <input id="opt3" placeholder="Option D" />
-            </div>
-            <div class="row">
-              <label>Correct option:
-                <select id="qCorrect">
-                  <option value="0">A</option>
-                  <option value="1">B</option>
-                  <option value="2">C</option>
-                  <option value="3">D</option>
-                </select>
-              </label>
-              <label>Timer (seconds): <input id="qTimer" type="number" value="30" min="5" max="600" style="width:120px"></label>
-            </div>
-            <div class="row">
-              <button id="btnStart">Start Question</button>
-              <button id="btnEnd" class="warn">End Now</button>
-              <button id="btnClear" class="ghost">Clear / Next</button>
-            </div>
-            <div class="row">
-              <span>Question # <span id="qNumber">1</span></span>
-              <span class="pill">State: <span id="qState">idle</span></span>
-              <span class="pill">Time left: <span id="adminTimeLeft">--</span></span>
-            </div>
-          </div>
-          <div class="hr"></div>
-          <h3>Live Answers</h3>
-          <div class="list" id="answersLive"></div>
-        </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Question Management -->
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                        📜 Question Scroll
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <input type="text" id="questionText" placeholder="Enter your battle question..." class="w-full px-4 py-3 rounded-xl border-2 border-gray-300 focus:border-amber-500 focus:outline-none">
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="optionA" placeholder="Option A" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none">
+                            <input type="text" id="optionB" placeholder="Option B" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none">
+                            <input type="text" id="optionC" placeholder="Option C" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none">
+                            <input type="text" id="optionD" placeholder="Option D" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none">
+                        </div>
+                        
+                        <div class="flex space-x-4">
+                            <select id="correctAnswer" class="flex-1 px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none">
+                                <option value="">Select Correct Answer</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                            </select>
+                            
+                            <input type="number" id="questionTimer" placeholder="Timer (sec)" min="10" max="120" value="30" class="w-24 px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none">
+                        </div>
+                        
+                        <button onclick="postQuestion()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">
+                            🏹 Launch Question
+                        </button>
+                    </div>
+                </div>
 
-        <div>
-          <h3>Insights</h3>
-          <div class="grid">
-            <div class="row"><span class="pill">Fastest Finger:</span> <strong id="fastestAny">—</strong></div>
-            <div class="row"><span class="pill">First Correct:</span> <strong id="fastestCorrect">—</strong></div>
-            <div class="row"><span class="pill">Total Answers:</span> <strong id="totalAnswers">0</strong></div>
-            <div class="row"><span class="pill">Participants Online:</span> <strong id="onlineCount">0</strong></div>
-          </div>
-          <div class="hr"></div>
-          <h3>Leaderboard</h3>
-          <table id="leaderAdmin">
-            <thead><tr><th>#</th><th>Player</th><th>Score</th><th class="small">Avg Time (s)</th></tr></thead>
-            <tbody></tbody>
-          </table>
+                <!-- Live Stats -->
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                        ⚡ Battle Statistics
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-green-50 p-4 rounded-xl">
+                            <h3 class="font-bold text-green-800 mb-2">⚡ Fastest Finger</h3>
+                            <div id="fastestFinger" class="text-green-600">Waiting for answers...</div>
+                        </div>
+                        
+                        <div class="bg-blue-50 p-4 rounded-xl">
+                            <h3 class="font-bold text-blue-800 mb-2">👥 Active Warriors</h3>
+                            <div id="activeParticipants" class="text-blue-600">0 / 8 warriors online</div>
+                        </div>
+                        
+                        <div class="bg-purple-50 p-4 rounded-xl">
+                            <h3 class="font-bold text-purple-800 mb-2">📊 Current Question</h3>
+                            <div id="currentQuestionStatus" class="text-purple-600">No active question</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Leaderboard -->
+            <div class="mt-6 bg-white rounded-2xl shadow-xl p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                    🏆 Warrior Leaderboard
+                </h2>
+                <div id="adminLeaderboard" class="space-y-2">
+                    <!-- Leaderboard will be populated here -->
+                </div>
+            </div>
         </div>
-      </div>
     </div>
 
-    <!-- PARTICIPANT PANEL -->
-    <div class="card hidden" id="pPanel">
-      <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <h2>Participant</h2>
-        <div class="row">
-          <span id="pUserLabel" class="tag"></span>
-          <button class="ghost" id="logoutP">Logout</button>
-        </div>
-      </div>
+    <!-- Participant Dashboard -->
+    <div id="participantDashboard" class="hidden min-h-screen p-6">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-gradient-to-r from-blue-800 to-blue-600 rounded-2xl p-6 mb-6 text-white">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <div id="participantAvatar" class="text-4xl"></div>
+                        <div>
+                            <h1 class="text-2xl font-bold" id="participantName">Warrior</h1>
+                            <p class="text-blue-200">Ready for Battle</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-3xl font-bold" id="participantScore">0</div>
+                        <div class="text-blue-200">Points</div>
+                        <button onclick="logout()" class="mt-2 bg-blue-900 hover:bg-blue-800 px-4 py-2 rounded-lg transition-colors">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-      <div id="pWaiting" class="center muted" style="padding:12px">Waiting for the admin to start the next question…</div>
+            <!-- Question Area -->
+            <div id="questionArea" class="bg-white rounded-2xl shadow-xl p-8 mb-6 hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Battle Question</h2>
+                    <div class="relative w-16 h-16">
+                        <svg class="w-16 h-16 transform -rotate-90">
+                            <circle cx="32" cy="32" r="28" stroke="#e5e7eb" stroke-width="4" fill="none"/>
+                            <circle id="timerCircle" cx="32" cy="32" r="28" stroke="#f59e0b" stroke-width="4" fill="none" class="timer-ring"/>
+                        </svg>
+                        <div id="timerText" class="absolute inset-0 flex items-center justify-center text-xl font-bold text-amber-600">30</div>
+                    </div>
+                </div>
+                
+                <div id="questionText" class="text-xl text-gray-800 mb-6 p-4 bg-amber-50 rounded-xl border-l-4 border-amber-500">
+                    Waiting for question...
+                </div>
+                
+                <div id="optionsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Options will be populated here -->
+                </div>
+            </div>
 
-      <div id="pQuiz" class="hidden">
-        <div class="row" style="justify-content:space-between">
-          <div>
-            <div class="pill">Question # <span id="pQNo">1</span></div>
-            <h3 id="pQTitle">—</h3>
-          </div>
-          <div class="timer" id="pTimer">00:00</div>
-        </div>
-        <div id="pQText" class="muted" style="margin:6px 0 10px"></div>
-        <form id="pForm" class="list"></form>
-        <div class="row">
-          <button id="pSubmit">Submit Answer</button>
-          <span id="submitStatus" class="pill">not submitted</span>
-        </div>
-      </div>
+            <!-- Waiting Area -->
+            <div id="waitingArea" class="bg-white rounded-2xl shadow-xl p-8 text-center">
+                <div class="text-6xl mb-4 animate-bounce">⚔️</div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Preparing for Battle</h2>
+                <p class="text-gray-600">Waiting for the next question from the battle master...</p>
+            </div>
 
-      <div class="hr"></div>
-      <div class="grid grid-2">
-        <div>
-          <h3>Round Insights</h3>
-          <div class="row"><span class="pill">Fastest Finger:</span> <strong id="pFastestAny">—</strong></div>
-          <div class="row"><span class="pill">First Correct:</span> <strong id="pFastestCorrect">—</strong></div>
+            <!-- Participant Leaderboard -->
+            <div class="mt-6 bg-white rounded-2xl shadow-xl p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                    🏆 Warrior Rankings
+                </h2>
+                <div id="participantLeaderboard" class="space-y-2">
+                    <!-- Leaderboard will be populated here -->
+                </div>
+            </div>
         </div>
-        <div>
-          <h3>Leaderboard</h3>
-          <table id="leaderP">
-            <thead><tr><th>#</th><th>Player</th><th>Score</th><th class="small">Avg Time (s)</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-      <p class="tip">Open this page in multiple tabs/devices. Use different participant accounts. Everything syncs via localStorage events (no server required).</p>
     </div>
-  </div>
 
-  <script>
-  // ======= CONFIG: Built‑in accounts =======
-  const ADMIN = { username: 'admin', password: 'quiz123' };
-  const PARTICIPANTS = [
-    {u:'p1', p:'1111'}, {u:'p2', p:'2222'}, {u:'p3', p:'3333'}, {u:'p4', p:'4444'},
-    {u:'p5', p:'5555'}, {u:'p6', p:'6666'}, {u:'p7', p:'7777'}, {u:'p8', p:'8888'}
-  ];
+    <script>
+        // Game State
+        let gameState = {
+            currentUser: null,
+            userType: null,
+            participants: {},
+            currentQuestion: null,
+            questionTimer: null,
+            questionStartTime: null,
+            leaderboard: []
+        };
 
-  // ======= Simple store in localStorage (cross‑tab sync) =======
-  const KEY = 'quiz.shared.v1';
-  const ONLINE_KEY = 'quiz.online.v1'; // heartbeat of signed‑in participants
+        // Warrior Avatars
+        const warriorAvatars = ['🏹', '⚔️', '🛡️', '🗡️', '🏺', '🎯', '⚡', '🔥'];
+        
+        // Built-in credentials
+        const credentials = {
+            admin: { username: 'admin', password: 'admin123' },
+            participants: {
+                'warrior1': 'battle123', 'warrior2': 'battle123', 'warrior3': 'battle123', 'warrior4': 'battle123',
+                'warrior5': 'battle123', 'warrior6': 'battle123', 'warrior7': 'battle123', 'warrior8': 'battle123'
+            }
+        };
 
-  const initialState = {
-    qNumber: 1,
-    round: {
-      state: 'idle', // idle | running | ended
-      title: '', text: '', options: [], correct: 0,
-      startedAt: 0, endsAt: 0, duration: 0,
-      answers: [] // {user, idx, at, msFromStart, correct}
-    },
-    leaderboard: {}, // user -> {score, totalMs, answers}
-    locks: { } // user -> true (prevents duplicate login)
-  };
+        // Initialize participants
+        function initializeParticipants() {
+            Object.keys(credentials.participants).forEach((username, index) => {
+                gameState.participants[username] = {
+                    name: username,
+                    avatar: warriorAvatars[index],
+                    score: 0,
+                    online: false,
+                    lastAnswerTime: null
+                };
+            });
+            updateLeaderboard();
+        }
 
-  function getState(){
-    try{ return JSON.parse(localStorage.getItem(KEY)) || initialState; }catch(e){ return initialState }
-  }
-  function setState(next){ localStorage.setItem(KEY, JSON.stringify(next)); }
+        // Login function
+        function login(type) {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
 
-  // Heartbeat for online tracking
-  function heartbeat(user){
-    const now = Date.now();
-    const map = JSON.parse(localStorage.getItem(ONLINE_KEY) || '{}');
-    map[user] = now;
-    localStorage.setItem(ONLINE_KEY, JSON.stringify(map));
-  }
-  function countOnline(){
-    const map = JSON.parse(localStorage.getItem(ONLINE_KEY) || '{}');
-    const now = Date.now();
-    return Object.values(map).filter(ts => now - ts < 10000).length; // last 10s
-  }
-  setInterval(()=>{
-    if(window.currentUser) heartbeat(window.currentUser);
-    document.getElementById('onlineCount').textContent = countOnline();
-  }, 3000);
+            if (!username || !password) {
+                alert('Please enter both username and password!');
+                return;
+            }
 
-  // Listen for storage updates to live‑sync UI
-  window.addEventListener('storage', (e)=>{
-    if(e.key === KEY){ renderAll(); }
-    if(e.key === ONLINE_KEY){ document.getElementById('onlineCount').textContent = countOnline(); }
-  });
+            let isValid = false;
+            
+            if (type === 'admin') {
+                isValid = username === credentials.admin.username && password === credentials.admin.password;
+            } else {
+                isValid = credentials.participants[username] === password;
+            }
 
-  // ======= Auth / Sessions =======
-  const adminLoginBtn = document.getElementById('adminLogin');
-  const pLoginBtn = document.getElementById('pLogin');
-  const adminUserLabel = document.getElementById('adminUserLabel');
-  const pUserLabel = document.getElementById('pUserLabel');
+            if (isValid) {
+                gameState.currentUser = username;
+                gameState.userType = type;
+                
+                if (type === 'participant') {
+                    gameState.participants[username].online = true;
+                    document.getElementById('participantName').textContent = username;
+                    document.getElementById('participantAvatar').textContent = gameState.participants[username].avatar;
+                    document.getElementById('participantScore').textContent = gameState.participants[username].score;
+                }
+                
+                showDashboard(type);
+                updateActiveParticipants();
+                updateLeaderboard();
+            } else {
+                alert('Invalid credentials! Please check the login guide.');
+            }
+        }
 
-  // populate participant select
-  const pUserSel = document.getElementById('pUser');
-  PARTICIPANTS.forEach(({u})=>{
-    const opt = document.createElement('option'); opt.value=u; opt.textContent=`${u}`; pUserSel.appendChild(opt);
-  });
+        // Show appropriate dashboard
+        function showDashboard(type) {
+            document.getElementById('loginScreen').classList.add('hidden');
+            
+            if (type === 'admin') {
+                document.getElementById('adminDashboard').classList.remove('hidden');
+            } else {
+                document.getElementById('participantDashboard').classList.remove('hidden');
+            }
+        }
 
-  function show(id, on){ document.getElementById(id).classList.toggle('hidden', !on); }
-  function setStatus(t){ document.getElementById('appStatus').textContent = t; }
+        // Logout function
+        function logout() {
+            if (gameState.userType === 'participant' && gameState.currentUser) {
+                gameState.participants[gameState.currentUser].online = false;
+            }
+            
+            gameState.currentUser = null;
+            gameState.userType = null;
+            
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('participantDashboard').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            
+            // Clear form
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            
+            updateActiveParticipants();
+        }
 
-  adminLoginBtn.onclick = ()=>{
-    const u = document.getElementById('adminUser').value.trim();
-    const p = document.getElementById('adminPass').value.trim();
-    if(u===ADMIN.username && p===ADMIN.password){
-      window.currentUser = 'admin';
-      setStatus('admin');
-      adminUserLabel.textContent = `admin`;
-      show('loginCard', false); show('adminPanel', true); show('pPanel', false);
-      renderAll();
-    } else alert('Invalid admin credentials');
-  };
+        // Post question (Admin)
+        function postQuestion() {
+            const questionText = document.getElementById('questionText').value.trim();
+            const optionA = document.getElementById('optionA').value.trim();
+            const optionB = document.getElementById('optionB').value.trim();
+            const optionC = document.getElementById('optionC').value.trim();
+            const optionD = document.getElementById('optionD').value.trim();
+            const correctAnswer = document.getElementById('correctAnswer').value;
+            const timer = parseInt(document.getElementById('questionTimer').value) || 30;
 
-  pLoginBtn.onclick = ()=>{
-    const u = document.getElementById('pUser').value;
-    const p = document.getElementById('pPass').value.trim();
-    const match = PARTICIPANTS.find(x=>x.u===u && x.p===p);
-    if(!match){ alert('Invalid participant credentials'); return; }
-    // lock account if free
-    const S = getState();
-    if(S.locks[u]){ alert('This account is already in use.'); return; }
-    S.locks[u] = true; setState(S);
-    window.currentUser = u;
-    setStatus('participant');
-    pUserLabel.textContent = u;
-    show('loginCard', false); show('adminPanel', false); show('pPanel', true);
-    renderAll();
-  };
+            if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctAnswer) {
+                alert('Please fill in all fields!');
+                return;
+            }
 
-  document.getElementById('logoutAdmin').onclick = ()=>{
-    window.currentUser = null; setStatus('idle');
-    show('loginCard', true); show('adminPanel', false); show('pPanel', false);
-  };
-  document.getElementById('logoutP').onclick = ()=>{
-    const u = window.currentUser; const S = getState();
-    if(u && S.locks[u]){ delete S.locks[u]; setState(S); }
-    window.currentUser = null; setStatus('idle');
-    show('loginCard', true); show('adminPanel', false); show('pPanel', false);
-  };
+            gameState.currentQuestion = {
+                text: questionText,
+                options: { A: optionA, B: optionB, C: optionC, D: optionD },
+                correct: correctAnswer,
+                timer: timer,
+                answers: {},
+                startTime: Date.now()
+            };
 
-  // ======= Admin: prepare/start/end/clear round =======
-  const qNumberEl = document.getElementById('qNumber');
-  const qStateEl = document.getElementById('qState');
-  const adminTimeLeftEl = document.getElementById('adminTimeLeft');
+            gameState.questionStartTime = Date.now();
+            
+            // Clear form
+            document.getElementById('questionText').value = '';
+            document.getElementById('optionA').value = '';
+            document.getElementById('optionB').value = '';
+            document.getElementById('optionC').value = '';
+            document.getElementById('optionD').value = '';
+            document.getElementById('correctAnswer').value = '';
+            
+            displayQuestionToParticipants();
+            updateCurrentQuestionStatus();
+            
+            // Start timer
+            startQuestionTimer(timer);
+        }
 
-  document.getElementById('btnStart').onclick = ()=>{
-    const title = document.getElementById('qTitle').value.trim();
-    const text = document.getElementById('qText').value.trim();
-    const opts = [0,1,2,3].map(i=>document.getElementById('opt'+i).value.trim());
-    const correct = +document.getElementById('qCorrect').value;
-    const duration = Math.max(5, Math.min(600, +document.getElementById('qTimer').value||30));
-    if(!title||!text||opts.some(o=>!o)){ alert('Fill question, all options.'); return; }
-    const S = getState();
-    const now = Date.now();
-    S.round = { state:'running', title, text, options:opts, correct, startedAt:now, endsAt: now+duration*1000, duration, answers:[] };
-    setState(S);
-    renderAll();
-  };
+        // Display question to participants
+        function displayQuestionToParticipants() {
+            if (gameState.userType === 'participant') {
+                document.getElementById('waitingArea').classList.add('hidden');
+                document.getElementById('questionArea').classList.remove('hidden');
+                
+                document.getElementById('questionText').textContent = gameState.currentQuestion.text;
+                
+                const optionsContainer = document.getElementById('optionsContainer');
+                optionsContainer.innerHTML = '';
+                
+                Object.entries(gameState.currentQuestion.options).forEach(([key, value]) => {
+                    const button = document.createElement('button');
+                    button.className = 'bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 text-left';
+                    button.innerHTML = `<span class="text-xl font-bold">${key}.</span> ${value}`;
+                    button.onclick = () => submitAnswer(key);
+                    optionsContainer.appendChild(button);
+                });
+            }
+        }
 
-  document.getElementById('btnEnd').onclick = ()=>{
-    const S = getState();
-    if(S.round.state==='running'){
-      S.round.state='ended'; S.round.endsAt = Date.now(); setState(S); renderAll();
-    }
-  };
+        // Submit answer
+        function submitAnswer(answer) {
+            if (!gameState.currentQuestion || gameState.currentQuestion.answers[gameState.currentUser]) {
+                return;
+            }
 
-  document.getElementById('btnClear').onclick = ()=>{
-    const S = getState();
-    S.qNumber = (S.qNumber||1) + 1;
-    S.round = { state:'idle', title:'', text:'', options:[], correct:0, startedAt:0, endsAt:0, duration:0, answers:[] };
-    setState(S);
-    // reset form
-    ['qTitle','qText','opt0','opt1','opt2','opt3'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('qCorrect').value='0';
-    document.getElementById('qTimer').value='30';
-    renderAll();
-  };
+            const answerTime = Date.now();
+            const timeTaken = answerTime - gameState.questionStartTime;
+            
+            gameState.currentQuestion.answers[gameState.currentUser] = {
+                answer: answer,
+                time: timeTaken,
+                timestamp: answerTime
+            };
 
-  // ======= Participant: view & answer =======
-  const pWaiting = document.getElementById('pWaiting');
-  const pQuiz = document.getElementById('pQuiz');
-  const pQNo = document.getElementById('pQNo');
-  const pQTitle = document.getElementById('pQTitle');
-  const pQText = document.getElementById('pQText');
-  const pForm = document.getElementById('pForm');
-  const pTimer = document.getElementById('pTimer');
-  const pSubmitBtn = document.getElementById('pSubmit');
-  const submitStatus = document.getElementById('submitStatus');
+            // Calculate points (correct answer + speed bonus)
+            let points = 0;
+            if (answer === gameState.currentQuestion.correct) {
+                points = 100;
+                const speedBonus = Math.max(0, 50 - Math.floor(timeTaken / 1000));
+                points += speedBonus;
+            }
 
-  pSubmitBtn.onclick = (e)=>{
-    e.preventDefault();
-    const S = getState();
-    if(S.round.state!=='running'){ alert('No active question.'); return; }
-    const formData = new FormData(pForm);
-    const idx = +formData.get('opt');
-    if(Number.isNaN(idx)){ alert('Please choose an option.'); return; }
-    const u = window.currentUser;
-    // prevent duplicate submit
-    if(S.round.answers.some(a=>a.user===u)) { submitStatus.textContent='already submitted'; return; }
-    const now = Date.now();
-    const msFromStart = now - S.round.startedAt;
-    const correct = (idx === S.round.correct);
-    S.round.answers.push({user:u, idx, at:now, msFromStart, correct});
-    // update leaderboard
-    if(!S.leaderboard[u]) S.leaderboard[u] = {score:0,totalMs:0,answers:0};
-    if(correct){ S.leaderboard[u].score += 1; }
-    S.leaderboard[u].totalMs += msFromStart; S.leaderboard[u].answers += 1;
-    setState(S);
-    submitStatus.textContent = 'submitted';
-    renderAll();
-  };
+            gameState.participants[gameState.currentUser].score += points;
+            gameState.participants[gameState.currentUser].lastAnswerTime = timeTaken;
 
-  function msToClock(ms){
-    const s = Math.max(0, Math.ceil(ms/1000));
-    const m = Math.floor(s/60).toString().padStart(2,'0');
-    const ss = (s%60).toString().padStart(2,'0');
-    return `${m}:${ss}`;
-  }
+            // Update participant score display
+            document.getElementById('participantScore').textContent = gameState.participants[gameState.currentUser].score;
 
-  // ======= Rendering =======
-  function renderAll(){
-    const S = getState();
-    // Admin state
-    qNumberEl.textContent = S.qNumber || 1;
-    qStateEl.textContent = S.round.state;
-    // Timer for admin
-    if(S.round.state==='running'){
-      const left = S.round.endsAt - Date.now();
-      adminTimeLeftEl.textContent = left>0? msToClock(left): '00:00';
-      if(left<=0 && S.round.state==='running'){ S.round.state='ended'; setState(S); }
-    } else if(S.round.state==='idle'){
-      adminTimeLeftEl.textContent = '--';
-    } else {
-      adminTimeLeftEl.textContent = '00:00';
-    }
+            // Disable options
+            const buttons = document.querySelectorAll('#optionsContainer button');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            });
 
-    // Live answers list
-    const cont = document.getElementById('answersLive');
-    cont.innerHTML = '';
-    [...S.round.answers].sort((a,b)=>a.at-b.at).forEach((a,i)=>{
-      const div = document.createElement('div');
-      div.className='option';
-      const correct = a.idx===S.round.correct;
-      div.innerHTML = `<strong>${i+1}. ${a.user}</strong> — chose <em>${letter(a.idx)}</em> <span class="${correct?'ok':'badc'}">${correct?'✓':'✗'}</span> <span class="pill">${(a.msFromStart/1000).toFixed(2)}s</span>`;
-      cont.appendChild(div);
-    });
+            // Highlight correct answer
+            buttons.forEach((btn, index) => {
+                const optionKey = ['A', 'B', 'C', 'D'][index];
+                if (optionKey === gameState.currentQuestion.correct) {
+                    btn.classList.remove('from-amber-400', 'to-amber-600');
+                    btn.classList.add('from-green-400', 'to-green-600');
+                } else if (optionKey === answer && answer !== gameState.currentQuestion.correct) {
+                    btn.classList.remove('from-amber-400', 'to-amber-600');
+                    btn.classList.add('from-red-400', 'to-red-600');
+                }
+            });
 
-    // Insights
-    const fastestAny = S.round.answers.length ? S.round.answers.reduce((m,a)=>a.at<m.at?a:m) : null;
-    document.getElementById('fastestAny').textContent = fastestAny? `${fastestAny.user} (${(fastestAny.msFromStart/1000).toFixed(2)}s)` : '—';
-    const firstCorrect = S.round.answers.filter(a=>a.correct).sort((a,b)=>a.at-b.at)[0];
-    document.getElementById('fastestCorrect').textContent = firstCorrect? `${firstCorrect.user} (${(firstCorrect.msFromStart/1000).toFixed(2)}s)` : '—';
-    document.getElementById('totalAnswers').textContent = S.round.answers.length;
+            updateFastestFinger();
+            updateLeaderboard();
+        }
 
-    // Leaderboards
-    renderLeaderboard('leaderAdmin', S.leaderboard);
-    renderLeaderboard('leaderP', S.leaderboard);
+        // Start question timer
+        function startQuestionTimer(duration) {
+            let timeLeft = duration;
+            const timerCircle = document.getElementById('timerCircle');
+            const timerText = document.getElementById('timerText');
+            
+            if (timerText) timerText.textContent = timeLeft;
+            
+            gameState.questionTimer = setInterval(() => {
+                timeLeft--;
+                
+                if (timerText) timerText.textContent = timeLeft;
+                
+                if (timerCircle) {
+                    const progress = (duration - timeLeft) / duration;
+                    const offset = 283 - (progress * 283);
+                    timerCircle.style.strokeDashoffset = offset;
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(gameState.questionTimer);
+                    endQuestion();
+                }
+            }, 1000);
+        }
 
-    // Participant view
-    if(window.currentUser && window.currentUser!=='admin'){
-      const u = window.currentUser;
-      pQNo.textContent = S.qNumber || 1;
-      if(S.round.state==='running'){
-        pWaiting.classList.add('hidden');
-        pQuiz.classList.remove('hidden');
-        pQTitle.textContent = S.round.title;
-        pQText.textContent = S.round.text;
-        pForm.innerHTML = S.round.options.map((o,i)=>{
-          return `<label class="option"><input type="radio" name="opt" value="${i}"> <span>${letter(i)}. ${escapeHtml(o)}</span></label>`;
-        }).join('');
-        const left = S.round.endsAt - Date.now();
-        pTimer.textContent = left>0? msToClock(left): '00:00';
-        pSubmitBtn.disabled = left<=0 || S.round.answers.some(a=>a.user===u);
-        submitStatus.textContent = S.round.answers.some(a=>a.user===u)? 'submitted' : 'not submitted';
-      } else {
-        pQuiz.classList.add('hidden');
-        pWaiting.classList.remove('hidden');
-      }
-      // show insights
-      document.getElementById('pFastestAny').textContent = fastestAny? `${fastestAny.user} (${(fastestAny.msFromStart/1000).toFixed(2)}s)` : '—';
-      document.getElementById('pFastestCorrect').textContent = firstCorrect? `${firstCorrect.user} (${(firstCorrect.msFromStart/1000).toFixed(2)}s)` : '—';
-    }
-  }
+        // End question
+        function endQuestion() {
+            gameState.currentQuestion = null;
+            
+            if (gameState.userType === 'participant') {
+                document.getElementById('questionArea').classList.add('hidden');
+                document.getElementById('waitingArea').classList.remove('hidden');
+            }
+            
+            updateCurrentQuestionStatus();
+            updateFastestFinger();
+            updateLeaderboard();
+        }
 
-  function renderLeaderboard(tableId, lb){
-    const tbody = document.querySelector(`#${tableId} tbody`);
-    const rows = Object.entries(lb).map(([user,stat])=>({user,...stat}));
-    rows.sort((a,b)=> b.score - a.score || (a.totalMs/a.answers) - (b.totalMs/b.answers));
-    tbody.innerHTML = rows.map((r,i)=>{
-      const avg = r.answers? (r.totalMs/r.answers/1000).toFixed(2): '-';
-      return `<tr><td>${i+1}</td><td>${r.user}</td><td class="score">${r.score}</td><td>${avg}</td></tr>`
-    }).join('');
-  }
+        // Update fastest finger
+        function updateFastestFinger() {
+            if (!gameState.currentQuestion || Object.keys(gameState.currentQuestion.answers).length === 0) {
+                document.getElementById('fastestFinger').textContent = 'Waiting for answers...';
+                return;
+            }
 
-  function letter(i){ return ['A','B','C','D'][i] || '?'; }
-  function escapeHtml(s){ return s.replace(/[&<>"]+/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",""":"&quot;"}[c])); }
+            let fastest = null;
+            let fastestTime = Infinity;
 
-  // Timers repaint
-  setInterval(()=>{
-    const S = getState();
-    if(S.round.state==='running'){
-      renderAll();
-    }
-  }, 500);
+            Object.entries(gameState.currentQuestion.answers).forEach(([user, data]) => {
+                if (data.answer === gameState.currentQuestion.correct && data.time < fastestTime) {
+                    fastest = user;
+                    fastestTime = data.time;
+                }
+            });
 
-  // build participant select labels with lock indicator
-  function refreshParticipantSelect(){
-    const S = getState();
-    pUserSel.querySelectorAll('option').forEach(opt=>{
-      const u = opt.value; const locked = !!S.locks[u];
-      opt.textContent = locked? `${u} (in use)` : u;
-      opt.disabled = locked;
-    });
-  }
-  setInterval(refreshParticipantSelect, 1500);
+            const fastestElement = document.getElementById('fastestFinger');
+            if (fastest) {
+                const avatar = gameState.participants[fastest].avatar;
+                fastestElement.innerHTML = `${avatar} ${fastest} (${(fastestTime / 1000).toFixed(1)}s)`;
+            } else {
+                fastestElement.textContent = 'No correct answers yet...';
+            }
+        }
 
-  // initial render
-  renderAll();
-  refreshParticipantSelect();
+        // Update active participants
+        function updateActiveParticipants() {
+            const count = Object.values(gameState.participants).filter(p => p.online).length;
+            const element = document.getElementById('activeParticipants');
+            if (element) {
+                element.textContent = `${count} / 8 warriors online`;
+            }
+        }
 
-  </script>
-</body>
+        // Update current question status
+        function updateCurrentQuestionStatus() {
+            const element = document.getElementById('currentQuestionStatus');
+            if (element) {
+                if (gameState.currentQuestion) {
+                    const answeredCount = Object.keys(gameState.currentQuestion.answers).length;
+                    element.textContent = `Active - ${answeredCount} warriors answered`;
+                } else {
+                    element.textContent = 'No active question';
+                }
+            }
+        }
+
+        // Update leaderboard
+        function updateLeaderboard() {
+            const sortedParticipants = Object.values(gameState.participants)
+                .sort((a, b) => b.score - a.score);
+
+            // Update admin leaderboard
+            const adminBoard = document.getElementById('adminLeaderboard');
+            if (adminBoard) {
+                adminBoard.innerHTML = sortedParticipants.map((participant, index) => {
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+                    const statusColor = participant.online ? 'text-green-600' : 'text-gray-400';
+                    const status = participant.online ? 'Online' : 'Offline';
+                    
+                    return `
+                        <div class="flex items-center justify-between p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+                            <div class="flex items-center space-x-4">
+                                <span class="text-2xl">${medal}</span>
+                                <span class="text-2xl">${participant.avatar}</span>
+                                <div>
+                                    <div class="font-bold text-gray-800">${participant.name}</div>
+                                    <div class="text-sm ${statusColor}">${status}</div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-amber-600">${participant.score}</div>
+                                <div class="text-sm text-gray-600">points</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Update participant leaderboard
+            const participantBoard = document.getElementById('participantLeaderboard');
+            if (participantBoard) {
+                participantBoard.innerHTML = sortedParticipants.map((participant, index) => {
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+                    const isCurrentUser = participant.name === gameState.currentUser;
+                    const highlightClass = isCurrentUser ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gray-50';
+                    
+                    return `
+                        <div class="flex items-center justify-between p-4 ${highlightClass} rounded-xl border border-gray-200">
+                            <div class="flex items-center space-x-4">
+                                <span class="text-2xl">${medal}</span>
+                                <span class="text-2xl">${participant.avatar}</span>
+                                <div>
+                                    <div class="font-bold text-gray-800">${participant.name} ${isCurrentUser ? '(You)' : ''}</div>
+                                    <div class="text-sm text-gray-600">Rank #${index + 1}</div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-amber-600">${participant.score}</div>
+                                <div class="text-sm text-gray-600">points</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Initialize the game
+        initializeParticipants();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'987938bb05a73a5d',t:'MTc1OTI5Mjk5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
+
