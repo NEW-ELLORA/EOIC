@@ -49,6 +49,7 @@
         <button onclick="openLeaderboardModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300">🏆 View Leaderboard</button>
       </div>
       <div class="mt-6 text-sm text-amber-700 bg-amber-50 p-4 rounded-xl">
+        <p><strong>Admin:</strong> admin / Thunder4554</p>
         <p><strong>Warriors:</strong> warrior1-8 / battle123</p>
       </div>
     </div>
@@ -311,9 +312,7 @@ let gameState = {
   currentQuestion: null,
   questionTimer: null,
   prevRanks: {},
-  // runner now has a runId
   setRunner: { running:false, queue:[], cursor:0, timerId:null, runId:null },
-  // photo sharing
   photoShareAllowed: false,
   photoShareExpiresAt: null,
   photos: []
@@ -346,9 +345,7 @@ function joinPresence(usernameOrViewer){
       refreshAllLeaderboards();
     })
     .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await presenceChannel.track({ at: new Date().toISOString() });
-      }
+      if (status === 'SUBSCRIBED') { await presenceChannel.track({ at: new Date().toISOString() }); }
     });
 }
 
@@ -387,17 +384,94 @@ const isDirectImageUrl = (u) => /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u||'');
 const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
 
+// ========== Resilient realtime support ==========
+let arenaHub = null;          // unified DB events channel
+let lastEventAt = Date.now(); // heartbeat
+const SOFT_REFRESH_MS = 6000; // if quiet for > this, poll
+
+function bumpHeartbeat(){ lastEventAt = Date.now(); }
+
+// Soft refresh: read-only updates
+async function softRefresh(){
+  try{
+    await Promise.allSettled([
+      fetchActiveQuestion(),
+      refreshAllLeaderboards(),
+      refreshFastestHistory(),
+      updateFastestFinger(),
+      updatePhotoFastest(),
+      fetchPhotoShareAllowed(),
+      (document.getElementById('adminDashboard')?.classList.contains('hidden') ? Promise.resolve() : refreshPhotoInbox())
+    ]);
+  }catch{}
+}
+
+// Unified realtime hub (replace many small channels)
+function wireRealtime(){
+  if (arenaHub) { try{ arenaHub.unsubscribe(); }catch{} }
+
+  arenaHub = sb.channel('arena-hub');
+
+  const tables = [
+    'answers',
+    'questions',
+    'score_adjustments',
+    'participant_flags',
+    'photo_share_toggle',
+    'photo_shares'
+  ];
+
+  tables.forEach(t => {
+    arenaHub.on('postgres_changes', { event:'*', schema:'public', table: t }, payload => {
+      bumpHeartbeat();
+      switch(t){
+        case 'answers':
+          refreshAllLeaderboards();
+          updateFastestFinger();
+          refreshFastestHistory();
+          updatePhotoFastest();
+          break;
+        case 'questions': {
+          const q = payload.new;
+          if (q && !q.ended && new Date(q.ends_at) > new Date()) setCurrentQuestion(q);
+          else clearQuestionUI();
+          refreshFastestHistory();
+          break;
+        }
+        case 'score_adjustments':
+        case 'participant_flags':
+          refreshAllLeaderboards();
+          break;
+        case 'photo_share_toggle':
+          fetchPhotoShareAllowed();
+          break;
+        case 'photo_shares':
+          if (!document.getElementById('adminDashboard')?.classList.contains('hidden')) {
+            refreshPhotoInbox();
+          }
+          break;
+      }
+    });
+  });
+
+  arenaHub.subscribe(status => { if (status === 'SUBSCRIBED') bumpHeartbeat(); });
+}
+
+// Watchdog: poll if realtime is quiet (sleeping tab / flaky net)
+setInterval(() => {
+  if (Date.now() - lastEventAt > SOFT_REFRESH_MS) { softRefresh(); bumpHeartbeat(); }
+}, 2000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { softRefresh(); bumpHeartbeat(); }});
+window.addEventListener('focus', () => { softRefresh(); bumpHeartbeat(); });
+
 // ===================== LOGIN =====================
 function login(type){
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value.trim();
   if(!username||!password){ alert('Please enter both username and password!'); return; }
   let ok=false;
-  if(type==='admin'){
-    ok = (username===credentials.admin.username && password===credentials.admin.password);
-  } else {
-    ok = credentials.participants[username]===password;
-  }
+  if(type==='admin'){ ok = (username===credentials.admin.username && password===credentials.admin.password); }
+  else { ok = credentials.participants[username]===password; }
   if(!ok){ alert('Invalid credentials!'); return; }
   gameState.currentUser=username;
   gameState.userType=type;
@@ -419,6 +493,7 @@ function login(type){
   refreshPhotoInbox();
   refreshFastestHistory();
   updatePhotoFastest();
+  wireRealtime(); // start unified realtime
 }
 function showDashboard(type){
   document.getElementById('loginScreen').classList.add('hidden');
@@ -484,33 +559,6 @@ function clearQuestionUI(){
   if(ff) ff.innerText='Waiting for answers...';
   updatePhotoFastest();
 }
-
-// Realtime
-sb.channel('answers-live')
-  .on('postgres_changes',{event:'*',schema:'public',table:'answers'}, () => {
-    refreshAllLeaderboards();
-    updateFastestFinger();
-    refreshFastestHistory();
-    updatePhotoFastest();
-  })
-  .subscribe();
-
-sb.channel('adjustments-live').on('postgres_changes',{event:'*',schema:'public',table:'score_adjustments'}, refreshAllLeaderboards).subscribe();
-sb.channel('flags-live').on('postgres_changes',{event:'*',schema:'public',table:'participant_flags'}, refreshAllLeaderboards).subscribe();
-sb.channel('questions-live')
-  .on('postgres_changes',{event:'INSERT',schema:'public',table:'questions'}, (p)=>{
-    const q=p.new; if(!q.ended && new Date(q.ends_at)>new Date()) setCurrentQuestion(q);
-  })
-  .on('postgres_changes',{event:'*',schema:'public',table:'questions'}, (p)=>{
-    const q=p.new;
-    if(!q || q.ended || new Date(q.ends_at)<=new Date()) clearQuestionUI();
-    else setCurrentQuestion(q);
-    refreshFastestHistory();
-  })
-  .subscribe();
-
-setInterval(()=>{ if (gameState.currentQuestion) updateFastestFinger(); }, 1000);
-setInterval(refreshAllLeaderboards, 3000);
 
 // ===================== PARTICIPANT VIEW =====================
 function displayQuestionToParticipants(){
@@ -756,7 +804,6 @@ async function refreshFastestHistory(){
   if(btn){ btn.disabled = true; btn.textContent = 'Loading...'; }
 
   try{
-    // Prefer the current run id; otherwise infer from latest question; otherwise today-only.
     let runId = gameState.setRunner?.runId || null;
     if(!runId){
       const { data: lastQ } = await sb.from('questions')
@@ -846,7 +893,7 @@ async function refreshFastestHistory(){
   }
 }
 
-// ====== MINI FASTEST LIST inside Photo Card (scoped to current run) ======
+// ====== MINI FASTEST LIST inside Photo Card ======
 async function updatePhotoFastest(){
   const el = document.getElementById('photoFastestList');
   if(!el) return;
@@ -855,7 +902,6 @@ async function updatePhotoFastest(){
     let q = gameState.currentQuestion;
 
     if(!q){
-      // latest question for current run (or today)
       let runId = gameState.setRunner?.runId || null;
       if(!runId){
         const { data: lastQ } = await sb.from('questions')
@@ -1460,7 +1506,5 @@ function closeLeaderboardModal(){
 })();
 </script>
 </body>
-</html>
-
-
+</html
 
