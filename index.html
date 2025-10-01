@@ -6,7 +6,6 @@
   <title>Warrior Quiz Arena</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-  <!-- Chart.js for cool bar chart -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { box-sizing: border-box; }
@@ -21,9 +20,6 @@
     @keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity: 1; } }
     .rank-jump { animation: rankJump .6s ease-out; }
     @keyframes rankJump { 0%{transform: translateY(0)} 30%{transform: translateY(-14px)} 100%{transform: translateY(0)} }
-    .dropzone { border: 2px dashed #f59e0b; border-radius: 0.75rem; padding: 0.75rem; background: #fff7ed; }
-    .dropzone.drag { background:#fef3c7; border-color:#f59e0b; }
-    .thumb { max-height: 120px; object-fit: contain; border-radius: 0.5rem; }
     .modal-bg { background: rgba(0,0,0,.6); }
   </style>
 </head>
@@ -48,7 +44,7 @@
             <input type="password" id="password" class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 focus:border-amber-600 focus:outline-none" placeholder="Enter password"/>
           </div>
 
-        <div class="flex space-x-4">
+          <div class="flex space-x-4">
             <button onclick="login('admin')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">🛡️ Admin</button>
             <button onclick="login('participant')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">⚔️ Warrior</button>
           </div>
@@ -87,7 +83,7 @@
         <div class="flex justify-between items-center">
           <div>
             <h1 class="text-3xl font-bold">🛡️ Admin Command Center</h1>
-            <p class="text-red-200">Build sets, add images by drag & drop, run them.</p>
+            <p class="text-red-200">Build sets, add images by URL, run them.</p>
           </div>
           <button onclick="logout()" class="bg-red-900 hover:bg-red-800 px-4 py-2 rounded-lg transition-colors">Logout</button>
         </div>
@@ -223,11 +219,11 @@
     const SUPABASE_URL = 'https://iondedmhlyonsmpqulhq.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvbmRlZG1obHlvbnNtcHF1bGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyOTQ2MjQsImV4cCI6MjA3NDg3MDYyNH0.WFo2SfBf_Z2_e6C_pSuT8YStTCAD9pdGo90JNrgZdzM';
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const STORAGE_BUCKET = 'question-images';
 
     // ===================== STATE =====================
     const STORAGE_KEY = 'warriorQuizState_v8';
     const SETS_KEY = 'warriorQuizSets_v2';
+    const LAST_SET_KEY = 'warriorQuizLastSetName';
 
     let gameState = {
       currentUser: null,
@@ -495,21 +491,6 @@
       return rows;
     }
 
-    // colorful gradient palette
-    function makeBarColors(ctx, count){
-      const {chartArea} = ctx.chart;
-      const h = i => (i*360/Math.max(count,1));
-      const colors = [];
-      for(let i=0;i<count;i++){
-        const grad = ctx.createLinearGradient(chartArea.left, chartArea.bottom, chartArea.right, chartArea.top);
-        const hue = h(i);
-        grad.addColorStop(0, `hsl(${(hue+10)%360}, 90%, 65%)`);
-        grad.addColorStop(1, `hsl(${(hue-10+360)%360}, 90%, 55%)`);
-        colors.push(grad);
-      }
-      return colors;
-    }
-
     let chartInstance = null;
 
     async function refreshAllLeaderboards(){
@@ -518,7 +499,7 @@
       renderLeaderboard('adminLeaderboard', rows);
       renderLeaderboard('participantLeaderboard', rows);
 
-      // Update chart if modal open
+      // Update chart if modal open (solid colorful bars)
       const canvas = document.getElementById('leaderboardChart');
       if(canvas && !document.getElementById('leaderboardModal').classList.contains('hidden')){
         const labels = rows.map(r=>r.name);
@@ -536,22 +517,16 @@
               borderWidth: 2,
               borderRadius: 10,
               borderColor: '#ffffff',
-              backgroundColor: (context)=>{
-                const {chart} = context;
-                const {chartArea} = chart;
-                if(!chartArea) return 'rgba(255,159,64,0.7)';
-                return makeBarColors(context, scores.length);
-              }
+              backgroundColor: [
+                '#f87171','#fb923c','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#facc15'
+              ]
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: { duration: 1200, easing: 'easeOutCubic' },
-            plugins: {
-              legend: { display: false },
-              tooltip: { backgroundColor: 'rgba(0,0,0,0.7)' }
-            },
+            animation: { duration: 1000, easing: 'easeOutCubic' },
+            plugins: { legend: { display: false } },
             scales: {
               x: { ticks: { color: '#6b7280' }, grid: { display:false } },
               y: { beginAtZero: true, ticks: { color: '#6b7280' } }
@@ -639,9 +614,9 @@
     }
     function msg(t,bad=false){ const el=document.getElementById('adminActionMsg'); if(!el) return; el.textContent=t; el.className='text-sm '+(bad?'text-red-600':'text-gray-600'); }
 
-    // ===================== SET BUILDER with DRAG & DROP =====================
+    // ===================== SET BUILDER (Image URL only) =====================
     function getBlankQuestion(){
-      return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_path:'', image_url:'' };
+      return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' };
     }
     function createFreshSet(){
       document.getElementById('setName').value = 'New Set ' + new Date().toLocaleTimeString();
@@ -661,18 +636,7 @@
         </div>
         <div class="grid md:grid-cols-2 gap-2">
           <input class="q-text px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Question text" value="${escapeHtml(q.text)}"/>
-          <div class="space-y-2">
-            <div class="dropzone q-drop flex items-center justify-between gap-3">
-              <div class="text-sm text-amber-800">Drag & drop image here or</div>
-              <input type="file" accept="image/*" class="q-file hidden"/>
-              <button type="button" class="q-pick bg-amber-600 hover:bg-amber-700 text-white text-sm px-3 py-1 rounded">Choose</button>
-            </div>
-            <div class="flex items-center gap-3 q-thumb-wrap ${q.image_url?'':'hidden'}">
-              <img class="thumb q-thumb" src="${q.image_url||''}" alt="preview"/>
-              <button type="button" class="q-clear text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300">Remove</button>
-            </div>
-          </div>
-
+          <input class="q-img px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Image URL (optional)" value="${escapeHtml(q.image_url)}"/>
           <input class="q-a px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option A" value="${escapeHtml(q.A)}"/>
           <input class="q-b px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option B" value="${escapeHtml(q.B)}"/>
           <input class="q-c px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option C" value="${escapeHtml(q.C)}"/>
@@ -685,38 +649,6 @@
         </div>
       `;
       wrap.appendChild(div);
-
-      // wire dropzone
-      const dz   = div.querySelector('.q-drop');
-      const pick = div.querySelector('.q-pick');
-      const file = div.querySelector('.q-file');
-      const tWrap= div.querySelector('.q-thumb-wrap');
-      const thumb= div.querySelector('.q-thumb');
-      const clear= div.querySelector('.q-clear');
-
-      function setThumb(url){ thumb.src=url; tWrap.classList.remove('hidden'); }
-      function hideThumb(){ thumb.src=''; tWrap.classList.add('hidden'); div.dataset.image_path=''; div.dataset.image_url=''; }
-
-      dz.addEventListener('dragover',(e)=>{ e.preventDefault(); dz.classList.add('drag'); });
-      dz.addEventListener('dragleave',()=> dz.classList.remove('drag'));
-      dz.addEventListener('drop', async (e)=>{ e.preventDefault(); dz.classList.remove('drag'); if(e.dataTransfer.files?.length){ await handleUpload(e.dataTransfer.files[0]); }});
-      pick.addEventListener('click', ()=> file.click());
-      file.addEventListener('change', async ()=>{ if(file.files?.length) await handleUpload(file.files[0]); });
-      clear.addEventListener('click', hideThumb);
-
-      async function handleUpload(f){
-        try{
-          const ext = (f.name.split('.').pop()||'png').toLowerCase();
-          const safeName = (f.name||'image').replace(/[^A-Za-z0-9._-]/g,'_');
-          const path = `qimg/${Date.now()}_${Math.random().toString(36).slice(2)}_${safeName}`;
-          const { error } = await sb.storage.from(STORAGE_BUCKET).upload(path, f, { upsert:false, contentType: f.type || `image/${ext}` });
-          if(error){ alert('Upload failed: '+error.message); return; }
-          const { data } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-          div.dataset.image_path = path;
-          div.dataset.image_url  = data.publicUrl;
-          setThumb(data.publicUrl);
-        }catch(err){ console.error(err); alert('Upload failed.'); }
-      }
     }
     function renumberQuestions(){
       [...document.querySelectorAll('#setQuestions .qrow')].forEach((row,i)=>{
@@ -730,8 +662,7 @@
       const rows=[...document.querySelectorAll('#setQuestions .qrow')];
       const items=rows.map(r=>({
         text:r.querySelector('.q-text').value.trim(),
-        image_path:r.dataset.image_path||'',
-        image_url:r.dataset.image_url||'',
+        image_url:r.querySelector('.q-img').value.trim(),
         A:r.querySelector('.q-a').value.trim(),
         B:r.querySelector('.q-b').value.trim(),
         C:r.querySelector('.q-c').value.trim(),
@@ -749,24 +680,30 @@
       const idx=list.findIndex(s=>s.name===set.name);
       if(idx>=0) list[idx]=set; else list.push(set);
       localStorage.setItem(SETS_KEY, JSON.stringify(list));
+      localStorage.setItem(LAST_SET_KEY, set.name);   // remember last
       loadSavedSetsDropdown(set.name);
+      alert('✅ Set saved!');
     }
 
     function loadSavedSetsDropdown(selectedName){
       const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
       const sel=document.getElementById('savedSets');
       sel.innerHTML=list.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
-      if(selectedName) sel.value=selectedName;
+      const last = selectedName || localStorage.getItem(LAST_SET_KEY);
+      if(last && list.some(s=>s.name===last)) sel.value=last;
     }
 
     function loadSelectedSet(){
-      const name=document.getElementById('savedSets').value;
+      const sel=document.getElementById('savedSets');
+      const name=sel.value;
       const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
       const set=list.find(s=>s.name===name);
       if(!set){ alert('No set found'); return; }
+      localStorage.setItem(LAST_SET_KEY, name);
       document.getElementById('setName').value=set.name;
       const wrap=document.getElementById('setQuestions'); wrap.innerHTML='';
       set.items.forEach(item=>addQuestionRow(item));
+      alert('📥 Set loaded: ' + name);
     }
 
     // ===================== RUN SET =====================
@@ -838,14 +775,10 @@
     // ===================== GLOBAL UI HELPERS =====================
     function openLeaderboardModal(){
       document.getElementById('leaderboardModal').classList.remove('hidden');
-      // render chart after layout is visible so gradients compute with chartArea
-      setTimeout(refreshAllLeaderboards, 60);
+      // delay so Chart.js has dimensions; then render
+      setTimeout(()=>refreshAllLeaderboards(), 200);
     }
     function closeLeaderboardModal(){ document.getElementById('leaderboardModal').classList.add('hidden'); }
-
-    // Prevent the browser from opening files when dropped anywhere
-    window.addEventListener('dragover', e => e.preventDefault());
-    window.addEventListener('drop',     e => e.preventDefault());
 
     // ===================== BOOT =====================
     (function boot(){
@@ -855,7 +788,7 @@
       else joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
 
       if(gameState.userType){ showDashboard(gameState.userType); }
-      loadSavedSetsDropdown();
+      loadSavedSetsDropdown();                   // <-- ensures saved sets show after any login/logout
       populateAdminSelect();
       fetchActiveQuestion(); refreshAllLeaderboards();
       window.addEventListener('beforeunload', saveState);
@@ -863,5 +796,4 @@
   </script>
 </body>
 </html>
-
 
