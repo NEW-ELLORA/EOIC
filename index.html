@@ -946,20 +946,35 @@ async function resetGame(){
 /* ===================== PHOTO SHARING ===================== */
 /** Admin: set allowed on/off (persists in table) */
 async function adminSetPhotoShareAllowed(allowed){
-    try{
-        const { error } = await sb.from(PHOTO_TOGGLE_TABLE).upsert({ id:1, allowed }, { onConflict:'id' });
-        if(error) throw error;
-        gameState.photoShareAllowed = !!allowed;
-        applyPhotoShareVisibility();
-        document.getElementById('photoToggleMsg').textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
-        saveState();
-    }catch(e){
-        console.error('toggle failed', e);
-        document.getElementById('photoToggleMsg').textContent = '❌ Failed to update toggle.';
-        // revert checkbox UI
-        const cb=document.getElementById('allowPhotoShare');
-        if(cb) cb.checked = gameState.photoShareAllowed;
+  try{
+    // Try UPDATE first
+    const { data: updData, error: updErr } = await sb
+      .from('photo_share_toggle')
+      .update({ allowed })
+      .eq('id', 1)
+      .select('id');
+
+    // If no row was updated, insert the control row once
+    if (!updErr && (!updData || updData.length === 0)) {
+      const { error: insErr } = await sb
+        .from('photo_share_toggle')
+        .insert({ id: 1, allowed });
+      if (insErr) throw insErr;
+    } else if (updErr) {
+      throw updErr;
     }
+
+    gameState.photoShareAllowed = !!allowed;
+    applyPhotoShareVisibility();
+    document.getElementById('photoToggleMsg').textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
+    saveState();
+  }catch(e){
+    console.error('toggle failed', e);
+    const msg = document.getElementById('photoToggleMsg');
+    if (msg) msg.textContent = '❌ Failed to update toggle.';
+    const cb=document.getElementById('allowPhotoShare');
+    if(cb) cb.checked = gameState.photoShareAllowed;
+  }
 }
 /** Read current allowed flag */
 async function fetchPhotoShareAllowed(){
