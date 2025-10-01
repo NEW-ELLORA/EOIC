@@ -413,7 +413,6 @@ function displayQuestionToParticipants(){
 
     const imgWrap=document.getElementById('participantImageWrap');
     const img=document.getElementById('participantImage');
-    // MODIFIED: Removed isDirectImageUrl check to attempt loading any URL
     if(q.image_url && q.image_url.trim() !== ''){
         imgWrap.classList.remove('hidden');
         img.src=q.image_url;
@@ -832,10 +831,9 @@ async function runNextInQueue(){
     }
     const item = gameState.setRunner.queue[i];
     const start = new Date();
-    // MODIFIED: Added 500ms buffer to compensate for network latency
+    // Added 500ms buffer to compensate for network latency
     const ends = new Date(start.getTime() + (item.timer||30)*1000 + 500);
 
-    // warn once for non-direct image
     if(item.image_url && !isDirectImageUrl(item.image_url)){
         console.warn('Image URL may not be a direct image. Attempting to display anyway:', item.image_url);
     }
@@ -866,7 +864,7 @@ async function runNextInQueue(){
 async function resetGame(){
     if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and active questions!")) return;
     try {
-        // MODIFIED: Call a single RPC function to perform deletes with elevated privileges
+        // Call a single RPC function to perform deletes with elevated privileges
         const { error } = await sb.rpc('reset_game_tables');
         if (error) throw error;
 
@@ -914,4 +912,4 @@ function closeLeaderboardModal(){
 
 </script>
 </body>
-</html>
+</html>```
