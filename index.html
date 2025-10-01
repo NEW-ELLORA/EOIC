@@ -153,6 +153,31 @@
             <h2 class="text-2xl font-bold text-gray-800 mb-4">🏆 Warrior Leaderboard</h2>
             <div id="adminLeaderboard" class="space-y-2"></div>
         </div>
+
+        <!-- ==== PHOTO SHARING: Admin Control + Inbox ==== -->
+        <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Control -->
+            <div class="bg-white rounded-2xl shadow-xl p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">📸 Photo Sharing Control</h2>
+                <label class="flex items-center gap-3">
+                    <input id="allowPhotoShare" type="checkbox" class="w-5 h-5"
+                           onchange="adminSetPhotoShareAllowed(this.checked)" />
+                    <span class="text-gray-800 font-semibold">Allow participants to share photos</span>
+                </label>
+                <p class="text-sm text-gray-600 mt-2">Toggle this on to let warriors open their camera and send a photo.</p>
+                <div id="photoToggleMsg" class="text-sm text-gray-600 mt-3"></div>
+            </div>
+            <!-- Inbox -->
+            <div class="bg-white rounded-2xl shadow-xl p-6 lg:col-span-2">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">🗃️ Photo Inbox <span id="photoCount" class="text-gray-500 text-lg"></span></h2>
+                    <button onclick="refreshPhotoInbox()" class="bg-gray-800 hover:bg-gray-900 text-white text-sm px-3 py-2 rounded-lg">Refresh</button>
+                </div>
+                <div id="photoInbox" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+                <div id="photoInboxMsg" class="text-sm text-gray-600 mt-3"></div>
+            </div>
+        </div>
+        <!-- ==== /PHOTO SHARING ==== -->
     </div>
 </div>
 
@@ -176,6 +201,7 @@
             </div>
         </div>
 
+        <!-- Question area -->
         <div id="questionArea" class="bg-white rounded-2xl shadow-2xl p-8 mb-6 hidden">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">Battle Question</h2>
@@ -200,6 +226,25 @@
             <p class="text-gray-600">Waiting for the next question from the battle master...</p>
         </div>
 
+        <!-- ==== PHOTO SHARING: Participant Uploader (shows only when allowed) ==== -->
+        <div id="photoShareCard" class="mt-6 bg-white rounded-2xl shadow-xl p-6 hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📸 Share a Battle Photo</h2>
+            <p class="text-gray-600 mb-3">The battle master has opened photo sharing. Snap a pic and send it!</p>
+
+            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <!-- On mobile, this opens the camera -->
+                <input id="photoInput" type="file" accept="image/*" capture="environment"
+                       class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200"/>
+                <button onclick="uploadParticipantPhoto()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-lg">Upload</button>
+            </div>
+
+            <div class="mt-4 flex items-center gap-4">
+                <img id="photoPreview" class="hidden w-40 h-40 object-cover rounded-xl border" alt="Preview"/>
+                <div id="photoShareMsg" class="text-sm text-gray-600"></div>
+            </div>
+        </div>
+        <!-- ==== /PHOTO SHARING ==== -->
+
         <div class="mt-6 bg-white rounded-2xl shadow-xl p-6">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">🏆 Warrior Rankings</h2>
             <div id="participantLeaderboard" class="space-y-2"></div>
@@ -218,6 +263,12 @@ const STORAGE_KEY = 'warriorQuizState_v8';
 const SETS_KEY = 'warriorQuizSets_v2';
 const LAST_SET_KEY = 'warriorQuizLastSetName';
 const SETS_TABLE = 'question_sets'; // shared DB table
+
+// ==== PHOTO SHARING (constants)
+const PHOTO_TOGGLE_TABLE = 'photo_share_toggle'; // id:int(1), allowed:bool
+const PHOTO_SHARES_TABLE = 'photo_shares';       // username,text url,timestamp
+const PHOTO_BUCKET = 'battle_photos';
+
 let gameState = {
     currentUser: null,
     userType: null,
@@ -225,7 +276,10 @@ let gameState = {
     currentQuestion: null,
     questionTimer: null,
     prevRanks: {},
-    setRunner: { running:false, queue:[], cursor:0, timerId:null }
+    setRunner: { running:false, queue:[], cursor:0, timerId:null },
+    // photo sharing
+    photoShareAllowed: false,
+    photos: []
 };
 const warriorAvatars = ['🏹','⚔️','🛡️','🗡️','🏺','🎯','⚡','🔥'];
 const credentials = {
@@ -267,7 +321,8 @@ function saveState(){
         currentUser:gameState.currentUser,
         userType:gameState.userType,
         participants:gameState.participants,
-        prevRanks:gameState.prevRanks
+        prevRanks:gameState.prevRanks,
+        photoShareAllowed:gameState.photoShareAllowed
     }));
 }
 function loadState(){
@@ -278,6 +333,7 @@ function loadState(){
         gameState.userType=s.userType||null;
         gameState.participants=s.participants||{};
         gameState.prevRanks=s.prevRanks||{};
+        gameState.photoShareAllowed=!!s.photoShareAllowed;
     }catch{}
 }
 function initializeParticipants(){
@@ -314,6 +370,10 @@ function login(type){
     fetchActiveQuestion();
     refreshAllLeaderboards();
     populateAdminSelect();
+    // photo sharing boot
+    initPhotoSharingRealtime();
+    fetchPhotoShareAllowed();
+    refreshPhotoInbox();
 }
 function showDashboard(type){
     document.getElementById('loginScreen').classList.add('hidden');
@@ -324,6 +384,7 @@ function showDashboard(type){
         document.getElementById('participantName').textContent=gameState.currentUser||'Warrior';
         document.getElementById('participantAvatar').textContent=gameState.participants[gameState.currentUser]?.avatar||'⚔️';
     }
+    applyPhotoShareVisibility();
 }
 function logout(){
     if(gameState.userType==='participant' && gameState.currentUser){
@@ -882,6 +943,192 @@ async function resetGame(){
     }
 }
 
+/* ===================== PHOTO SHARING ===================== */
+/** Admin: set allowed on/off (persists in table) */
+async function adminSetPhotoShareAllowed(allowed){
+    try{
+        const { error } = await sb.from(PHOTO_TOGGLE_TABLE).upsert({ id:1, allowed }, { onConflict:'id' });
+        if(error) throw error;
+        gameState.photoShareAllowed = !!allowed;
+        applyPhotoShareVisibility();
+        document.getElementById('photoToggleMsg').textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
+        saveState();
+    }catch(e){
+        console.error('toggle failed', e);
+        document.getElementById('photoToggleMsg').textContent = '❌ Failed to update toggle.';
+        // revert checkbox UI
+        const cb=document.getElementById('allowPhotoShare');
+        if(cb) cb.checked = gameState.photoShareAllowed;
+    }
+}
+/** Read current allowed flag */
+async function fetchPhotoShareAllowed(){
+    try{
+        const { data, error } = await sb.from(PHOTO_TOGGLE_TABLE).select('allowed').eq('id',1).maybeSingle();
+        if(error) throw error;
+        const allowed = !!(data && data.allowed);
+        gameState.photoShareAllowed = allowed;
+        const cb=document.getElementById('allowPhotoShare');
+        if(cb) cb.checked = allowed;
+        applyPhotoShareVisibility();
+        const tmsg=document.getElementById('photoToggleMsg');
+        if(tmsg) tmsg.textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
+        saveState();
+    }catch(e){
+        console.warn('fetchPhotoShareAllowed', e);
+        // keep local state fallback
+        const cb=document.getElementById('allowPhotoShare');
+        if(cb) cb.checked = gameState.photoShareAllowed;
+        applyPhotoShareVisibility();
+    }
+}
+/** Show/hide participant card based on flag + role */
+function applyPhotoShareVisibility(){
+    const card=document.getElementById('photoShareCard');
+    if(!card) return;
+    const show = (gameState.userType==='participant') && gameState.photoShareAllowed;
+    card.classList.toggle('hidden', !show);
+}
+/** Participant: upload selected photo to Storage, then log in table */
+async function uploadParticipantPhoto(){
+    if(!gameState.photoShareAllowed){
+        setPhotoMsg('Photo sharing is currently disabled by the admin.', true);
+        return;
+    }
+    const input = document.getElementById('photoInput');
+    if(!input || !input.files || !input.files[0]){
+        setPhotoMsg('Please choose a photo first.', true);
+        return;
+    }
+    const file = input.files[0];
+    // Basic validations
+    if(!file.type.startsWith('image/')){ setPhotoMsg('File must be an image.', true); return; }
+    if(file.size > 5*1024*1024){ setPhotoMsg('Max size is 5MB.', true); return; }
+
+    // Preview
+    const preview = document.getElementById('photoPreview');
+    preview.src = URL.createObjectURL(file);
+    preview.classList.remove('hidden');
+
+    const uname = gameState.currentUser || 'anonymous';
+    const ts = new Date().toISOString().replace(/[:.]/g,'-');
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `photos/${encodeURIComponent(uname)}/${ts}.${ext}`;
+
+    setPhotoMsg('Uploading...');
+
+    try{
+        // Upload to Storage
+        const { error: upErr } = await sb.storage.from(PHOTO_BUCKET).upload(path, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type
+        });
+        if(upErr) throw upErr;
+
+        // Get public URL
+        const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+        const publicUrl = pub?.publicUrl;
+        if(!publicUrl) throw new Error('Could not get public URL');
+
+        // Insert DB row
+        const { error: insErr } = await sb.from(PHOTO_SHARES_TABLE).insert({
+            username: uname,
+            url: publicUrl
+        });
+        if(insErr) throw insErr;
+
+        setPhotoMsg('✅ Sent! The battle master can see your photo.');
+        // Reset file input
+        input.value = '';
+    }catch(e){
+        console.error('uploadParticipantPhoto', e);
+        setPhotoMsg('❌ Upload failed. Please try again.', true);
+    }
+}
+function setPhotoMsg(t, bad=false){
+    const el=document.getElementById('photoShareMsg');
+    if(!el) return;
+    el.textContent=t;
+    el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
+}
+/** Admin: load inbox */
+async function refreshPhotoInbox(){
+    const inbox=document.getElementById('photoInbox');
+    const countEl=document.getElementById('photoCount');
+    const msg=document.getElementById('photoInboxMsg');
+    if(!inbox) return;
+    try{
+        const { data, error } = await sb.from(PHOTO_SHARES_TABLE)
+            .select('id,username,url,created_at')
+            .order('created_at', { ascending:false })
+            .limit(200);
+        if(error) throw error;
+        gameState.photos = data || [];
+        inbox.innerHTML = (data||[]).map(row=>{
+            const dt = new Date(row.created_at);
+            const when = dt.toLocaleString();
+            const u = escapeHtml(row.username);
+            const src = escapeHtml(row.url);
+            return `
+            <div class="border rounded-xl overflow-hidden shadow-sm">
+                <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
+                <div class="p-3 flex items-center justify-between">
+                    <div>
+                        <div class="font-semibold text-gray-800">${u}</div>
+                        <div class="text-xs text-gray-500">${when}</div>
+                    </div>
+                    <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
+                </div>
+            </div>`;
+        }).join('');
+        if(countEl) countEl.textContent = `(${(data||[]).length})`;
+        if(msg) msg.textContent = (data && data.length)? '' : 'No photos yet.';
+    }catch(e){
+        console.error('refreshPhotoInbox', e);
+        if(msg) msg.textContent = '❌ Failed to load photos.';
+    }
+}
+/** Realtime wires for toggle + inbox */
+function initPhotoSharingRealtime(){
+    // Toggle
+    sb.channel('photo-toggle-rt')
+      .on('postgres_changes', { event:'*', schema:'public', table: PHOTO_TOGGLE_TABLE }, () => {
+          fetchPhotoShareAllowed();
+      })
+      .subscribe();
+
+    // Inbox live
+    sb.channel('photo-shares-rt')
+      .on('postgres_changes', { event:'INSERT', schema:'public', table: PHOTO_SHARES_TABLE }, (payload) => {
+          // Prepend newest card without full refresh
+          const row = payload.new;
+          gameState.photos.unshift(row);
+          const inbox=document.getElementById('photoInbox');
+          const countEl=document.getElementById('photoCount');
+          if(inbox){
+              const dt = new Date(row.created_at);
+              const when = dt.toLocaleString();
+              const u = escapeHtml(row.username);
+              const src = escapeHtml(row.url);
+              const card = document.createElement('div');
+              card.className='border rounded-xl overflow-hidden shadow-sm';
+              card.innerHTML = `
+                <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
+                <div class="p-3 flex items-center justify-between">
+                    <div>
+                        <div class="font-semibold text-gray-800">${u}</div>
+                        <div class="text-xs text-gray-500">${when}</div>
+                    </div>
+                    <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
+                </div>`;
+              inbox.prepend(card);
+          }
+          if(countEl) countEl.textContent = `(${gameState.photos.length})`;
+      })
+      .subscribe();
+}
+/* =================== /PHOTO SHARING =================== */
 
 // ===================== GLOBAL HELPERS =====================
 function openLeaderboardModal(){
@@ -907,9 +1154,31 @@ function closeLeaderboardModal(){
     fetchActiveQuestion();
     refreshAllLeaderboards();
 
+    // Photo sharing boot (even on login screen so admin sees correct toggle after login)
+    initPhotoSharingRealtime();
+    fetchPhotoShareAllowed();
+    refreshPhotoInbox();
+
+    // Preview selected photo instantly
+    const input = document.getElementById('photoInput');
+    if(input){
+        input.addEventListener('change', ()=>{
+            const f=input.files && input.files[0];
+            const prev=document.getElementById('photoPreview');
+            if(f){
+                prev.src = URL.createObjectURL(f);
+                prev.classList.remove('hidden');
+                setPhotoMsg('Ready to upload.');
+            }else{
+                prev.src=''; prev.classList.add('hidden');
+                setPhotoMsg('');
+            }
+        });
+    }
+
     window.addEventListener('beforeunload', saveState);
 })();
-
 </script>
 </body>
-</html>```
+</html>
+
