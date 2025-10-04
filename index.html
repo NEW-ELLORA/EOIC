@@ -10,7 +10,7 @@
   <style>
     body { box-sizing: border-box; }
     .warrior-bg { background: linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #CD853F 100%); }
-    .ancient-pattern { background-image: radial-gradient(circle at 25% 25%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255, 69, 0, 0.1) 0%, transparent 50%); }
+    .ancient-pattern { background-image: radial-gradient(circle at 25% 25%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255, 69, 0, 1) 0%, transparent 50%); }
     .timer-ring { stroke-dasharray: 283; stroke-dashoffset: 283; transition: stroke-dashoffset 1s linear; }
     .confetti { position: fixed; top: -10px; width: 8px; height: 14px; opacity: .9; transform: rotate(15deg); pointer-events:none; }
     @keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity: 1; } }
@@ -322,7 +322,6 @@ let gameState = {
   photoShareAllowed: false,
   photoShareExpiresAt: null,
   photos: [],
-  // remember participant selection for reveal time & re-renders
   lastSelected: null
 };
 let photoCountdownTimerId = null;
@@ -395,7 +394,7 @@ const isDirectImageUrl = (u) => {
   if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(u)) return true;
   return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u);
 };
-const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
+const escapeHtml = s => (s||'').replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[m]));
 function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
 
 /* ========== Realtime & soft refresh ========== */
@@ -559,6 +558,8 @@ function setCurrentQuestion(q){
     startTime:new Date(q.start_time).getTime(),
     endsAt:new Date(q.ends_at).getTime()
   };
+  gameState.lastSelected = null;
+
   if (q.run_id) { gameState.setRunner.runId = q.run_id; saveState(); }
   if(gameState.userType==='participant') displayQuestionToParticipants();
   startOrSyncTimer();
@@ -589,7 +590,7 @@ function displayQuestionToParticipants(){
   const img=document.getElementById('participantImage');
   if(q.image_url && q.image_url.trim() !== ''){
     imgWrap.classList.remove('hidden');
-    img.src=q.image_url;  // supports data: and normal URLs
+    img.src=q.image_url;
   } else {
     imgWrap.classList.add('hidden'); img.src='';
   }
@@ -608,7 +609,6 @@ function displayQuestionToParticipants(){
     optionsContainer.appendChild(btn);
   });
 
-  // If the participant already answered this question, keep buttons disabled across re-renders
   if (gameState.lastSelected != null) {
     disableButtonsOnly();
     const locked = document.getElementById('answerLockedMsg');
@@ -627,27 +627,13 @@ function confettiBurst(){
   }
 }
 
-// Keep for other use-cases, but DO NOT call this on submit anymore
-function hideQuestionForParticipant(message){
-  clearInterval(gameState.questionTimer);
-  gameState.questionTimer=null;
-  const qa=document.getElementById('questionArea');
-  const wa=document.getElementById('waitingArea');
-  if(qa) qa.classList.add('hidden');
-  if(wa){
-    wa.classList.remove('hidden');
-    const msgEl=document.getElementById('waitingMsg');
-    if(msgEl) msgEl.textContent = message || 'Answer received. Waiting for the next question...';
-  }
-}
-
 function disableButtonsOnly(){
   const buttons=[...document.querySelectorAll('#optionsContainer button')];
   buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-50','cursor-not-allowed'); });
 }
-
 function revealCorrectThenPause(correctKey, selectedKey){
   const buttons=[...document.querySelectorAll('#optionsContainer button')];
+  if(!buttons.length) return;
   buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-50','cursor-not-allowed'); });
 
   buttons.forEach(btn=>{
@@ -688,7 +674,7 @@ function startOrSyncTimer(){
   gameState.questionTimer=setInterval(tick,1000);
 }
 
-/* ===================== ANSWER SUBMIT (UPDATED) ===================== */
+/* ===================== ANSWER SUBMIT ===================== */
 async function submitAnswer(answer){
   const q=gameState.currentQuestion;
   if(!q||!gameState.currentUser) return;
@@ -706,6 +692,31 @@ async function submitAnswer(answer){
     question_id:q.id, username:gameState.currentUser, answer, time_ms:timeTaken, is_correct:isCorrect
   });
   if(error){ console.warn('submitAnswer error', error); return; }
+  if(isCorrect) confettiBurst();
+}
+
+/* ===================== END QUESTION (reveal, then clear) ===================== */
+async function endQuestion(){
+  const q = gameState.currentQuestion;
+  if(!q){ clearInterval(gameState.questionTimer); gameState.questionTimer=null; return; }
+  revealCorrectThenPause(q.correct, gameState.lastSelected);
+
+  setTimeout(()=>{
+    gameState.currentQuestion=null;
+    gameState.lastSelected=null;
+    const qa=document.getElementById('questionArea');
+    const wa=document.getElementById('waitingArea');
+    if(qa) qa.classList.add('hidden');
+    if(wa) wa.classList.remove('hidden');
+    updateCurrentQuestionStatus();
+  }, 1500);
+
+  clearInterval(gameState.questionTimer);
+  gameState.questionTimer=null;
+  updateFastestFinger();
+  refreshAllLeaderboards();
+  refreshFastestHistory();
+  saveState();
 }
 
 /* ===================== LEADERBOARD ===================== */
@@ -1219,7 +1230,8 @@ async function runNextInQueue(setName){
     return;
   }
   gameState.setRunner.cursor++;
-  gameState.setRunner.timerId = setTimeout(()=>runNextInQueue(setName), (item.timer||30)*1000 + 1000);
+  const delay = (item.timer||30)*1000 + 500 + 1600;
+  gameState.setRunner.timerId = setTimeout(()=>runNextInQueue(setName), delay);
 }
 
 /* ===================== RESET GAME ===================== */
@@ -1233,6 +1245,7 @@ async function resetGame(){
     gameState.prevRanks = {};
     gameState.currentQuestion = null;
     gameState.setRunner.runId = null;
+    gameState.lastSelected = null;
     clearInterval(gameState.questionTimer);
     updateCurrentQuestionStatus();
     await refreshAllLeaderboards();
@@ -1521,50 +1534,6 @@ function initPhotoSharingRealtime(){
     .subscribe();
 }
 
-/* ===================== QUESTION END (REVEAL FLOW) ===================== */
-async function endQuestion(){
-  clearInterval(gameState.questionTimer);
-  gameState.questionTimer=null;
-
-  const q = gameState.currentQuestion;
-  if(gameState.userType==='participant' && q){
-    revealCorrectThenPause(q.correct, gameState.lastSelected);
-
-    if(gameState.lastSelected === q.correct){ confettiBurst(); }
-
-    setTimeout(()=>{
-      const qa=document.getElementById('questionArea');
-      const wa=document.getElementById('waitingArea');
-      if(qa) qa.classList.add('hidden');
-      if(wa){
-        wa.classList.remove('hidden');
-        const msgEl=document.getElementById('waitingMsg');
-        if(msgEl) msgEl.textContent='Waiting for the next question from the battle master...';
-      }
-
-      gameState.currentQuestion=null;
-      gameState.lastSelected=null;
-
-      updateCurrentQuestionStatus();
-      updateFastestFinger();
-      refreshAllLeaderboards();
-      refreshFastestHistory();
-      saveState();
-    }, 1500);
-  } else {
-    gameState.currentQuestion=null;
-    if(gameState.userType==='participant'){
-      document.getElementById('questionArea').classList.add('hidden');
-      document.getElementById('waitingArea').classList.remove('hidden');
-    }
-    updateCurrentQuestionStatus();
-    updateFastestFinger();
-    refreshAllLeaderboards();
-    refreshFastestHistory();
-    saveState();
-  }
-}
-
 /* ===================== GLOBAL HELPERS ===================== */
 function openLeaderboardModal(){
   document.getElementById('leaderboardModal').classList.remove('hidden');
@@ -1605,9 +1574,7 @@ function closeLeaderboardModal(){
   updatePhotoFastest();
 
   window.addEventListener('beforeunload', saveState);
-  wireRealtime();
 })();
 </script>
 </body>
 </html>
-
