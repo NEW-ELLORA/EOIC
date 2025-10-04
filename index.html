@@ -1399,56 +1399,85 @@
       localStorage.setItem(LAST_SET_KEY,name);
     }
 
-    async function startSetRun(){
-      const qs=readQuestionsFromUI(); if(!qs.length){alert('Add questions first');return}
-      const runId=makeRunId();
-      gameState.setRunner = { ...gameState.setRunner, running:true, queue:qs, cursor:0, runId };
-      document.getElementById('setRunStatus').textContent='Running...';
-
-      await postQuestion(qs[0], runId);
-      tickSetRun();
-    }
-
-    async function postQuestion(q, runId){
-      const start=new Date();
-      const endsAt=new Date(start.getTime()+q.timer*1000);
-      const { error } = await sb.from('questions').insert({
-        run_id: runId,
-        text: q.text,
-        options: q.options,
-        correct: q.correct,
-        timer: q.timer,
-        points: q.points || 100,
-        image_url: q.image_url || null,
-        start_time: start.toISOString(),
-        ends_at: endsAt.toISOString(),
-        ended: false
-      });
-      if(error) console.error('postQuestion', error);
-    }
-
-    function tickSetRun(){
-      clearInterval(gameState.setRunner.timerId);
-      const timer=setInterval(async ()=>{
-        const {data:cur}=await sb.from('questions').select('id,ends_at,ended').order('start_time',{ascending:false}).limit(1);
-        if(cur&&cur.length){
-          const ended=cur[0].ended || new Date(cur[0].ends_at)<=new Date();
-          if(ended){
-            gameState.setRunner.cursor++;
-            const q=gameState.setRunner.queue[gameState.setRunner.cursor];
-            if(q){ await postQuestion(q, gameState.setRunner.runId); }
-            else { cancelSetRun(); }
-          }
+    // ================== FIXED QUESTION RUNNER LOGIC ==================
+    async function startSetRun() {
+        const qs = readQuestionsFromUI();
+        if (!qs.length) {
+            alert('Add questions first');
+            return;
         }
-      },1000);
-      gameState.setRunner.timerId=timer;
+        const runId = makeRunId();
+        // Stop any previous run just in case
+        cancelSetRun();
+
+        gameState.setRunner = {
+            running: true,
+            queue: qs,
+            cursor: 0,
+            runId,
+            timerId: null
+        };
+        document.getElementById('setRunStatus').textContent = 'Running...';
+
+        // Start the sequence by posting the first question
+        postNextQuestion();
     }
 
-    function cancelSetRun(){
-      clearInterval(gameState.setRunner.timerId);
-      gameState.setRunner = { running:false, queue:[], cursor:0, timerId:null, runId:null };
-      document.getElementById('setRunStatus').textContent='Stopped.';
+    async function postNextQuestion() {
+        const runner = gameState.setRunner;
+
+        // Check if the run should end
+        if (!runner.running || runner.cursor >= runner.queue.length) {
+            cancelSetRun();
+            document.getElementById('setRunStatus').textContent = 'Finished!';
+            return;
+        }
+
+        const q = runner.queue[runner.cursor];
+        await postQuestion(q, runner.runId);
+
+        // Increment cursor for the next question
+        runner.cursor++;
+
+        // Set a timeout to post the next question.
+        // We add a 2-second buffer to allow for a smooth transition and network latency.
+        const timeToNextQuestion = (q.timer * 1000) + 2000;
+        runner.timerId = setTimeout(postNextQuestion, timeToNextQuestion);
     }
+
+    async function postQuestion(q, runId) {
+        const start = new Date();
+        const endsAt = new Date(start.getTime() + q.timer * 1000);
+        const { error } = await sb.from('questions').insert({
+            run_id: runId,
+            text: q.text,
+            options: q.options,
+            correct: q.correct,
+            timer: q.timer,
+            points: q.points || 100,
+            image_url: q.image_url || null,
+            start_time: start.toISOString(),
+            ends_at: endsAt.toISOString(),
+            ended: false
+        });
+        if (error) console.error('postQuestion', error);
+    }
+
+    function cancelSetRun() {
+        if (gameState.setRunner && gameState.setRunner.timerId) {
+            clearTimeout(gameState.setRunner.timerId);
+        }
+        gameState.setRunner = {
+            running: false,
+            queue: [],
+            cursor: 0,
+            timerId: null,
+            runId: null
+        };
+        document.getElementById('setRunStatus').textContent = 'Stopped.';
+    }
+    // ================== END OF FIXED LOGIC ==================
+
 
     /* =======================================================================================
        PHOTO SHARING (Admin toggle + Participant upload + Admin inbox)
@@ -1482,25 +1511,57 @@
       updatePhotoCountdown();
     }
 
-    function updatePhotoCountdown(){
-      clearInterval(photoCountdownTimerId);
-      const el=document.getElementById('photoCountdown'); if(!el) return;
-      if(!gameState.photoShareAllowed || !gameState.photoShareExpiresAt){ el.textContent=''; return; }
+    // ================== FIXED PHOTO COUNTDOWN LOGIC ==================
+    function updatePhotoCountdown() {
+        clearInterval(photoCountdownTimerId);
+        photoCountdownTimerId = null; // Clear the timer ID
 
-      function tick(){
-        const ms = gameState.photoShareExpiresAt - Date.now();
-        if(ms <= 0){
-          el.textContent = 'Closed.';
-          onAdminTogglePhotoShare(false);
-          clearInterval(photoCountdownTimerId);
-          return;
+        const el = document.getElementById('photoCountdown');
+        if (!el) return;
+
+        if (!gameState.photoShareAllowed || !gameState.photoShareExpiresAt) {
+            el.textContent = '';
+            return;
         }
-        const s = Math.ceil(ms/1000);
-        el.textContent = `Auto closes in ${s}s`;
-      }
-      tick();
-      photoCountdownTimerId = setInterval(tick, 1000);
+
+        let isStopping = false; // Add a flag to prevent multiple calls
+
+        function tick() {
+            const ms = gameState.photoShareExpiresAt - Date.now();
+
+            if (ms <= 0) {
+                el.textContent = 'Closed.';
+                clearInterval(photoCountdownTimerId);
+                photoCountdownTimerId = null;
+
+                // Only the admin should execute this, and only once.
+                if (gameState.userType === 'admin' && !isStopping) {
+                    isStopping = true;
+                    onAdminTogglePhotoShare(false).finally(() => {
+                        isStopping = false; // Reset flag after operation
+                    });
+                }
+                return;
+            }
+
+            // Improved time display
+            const totalSeconds = Math.ceil(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+
+            let displayText = "Auto closes in ";
+            if (minutes > 0) {
+                displayText += `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+            } else {
+                displayText += `${seconds}s`;
+            }
+            el.textContent = displayText;
+        }
+
+        tick(); // Run once immediately
+        photoCountdownTimerId = setInterval(tick, 1000);
     }
+    // ================== END OF FIXED LOGIC ==================
 
     async function onAdminTogglePhotoShare(allow){
       const mins = parseInt(document.getElementById('photoDuration').value,10)||0;
@@ -1676,210 +1737,7 @@
   - For a hard reset (deleting history), implement an SQL function in Supabase and call it from resetGame().
 
   End of documentation padding.
-  -->
-
-  <!-- (More harmless spacer lines to exceed 1600 total lines as requested.) -->
-  <!-- 001 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 002 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 003 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 004 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 005 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 006 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 007 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 008 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 009 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 010 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 011 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 012 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 013 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 014 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 015 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 016 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 017 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 018 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 019 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 020 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 021 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 022 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 023 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 024 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 025 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 026 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 027 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 028 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 029 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 030 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 031 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 032 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 033 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 034 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 035 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 036 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 037 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 038 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 039 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 040 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 041 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 042 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 043 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 044 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 045 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 046 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 047 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 048 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 049 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 050 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 051 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 052 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 053 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 054 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 055 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 056 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 057 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 058 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 059 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 060 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 061 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 062 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 063 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 064 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 065 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 066 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 067 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 068 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 069 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 070 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 071 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 072 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 073 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 074 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 075 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 076 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 077 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 078 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 079 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 080 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 081 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 082 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 083 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 084 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 085 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 086 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 087 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 088 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 089 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 090 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 091 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 092 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 093 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 094 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 095 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 096 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 097 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 098 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 099 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 100 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- (…repeat harmless spacer lines to satisfy minimum length as requested…) -->
-  <!-- 1501 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1502 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1503 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1504 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1505 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1506 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1507 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1508 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1509 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1510 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1511 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1512 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1513 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1514 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1515 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1516 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1517 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1518 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1519 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1520 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1521 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1522 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1523 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1524 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1525 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1526 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1527 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1528 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1529 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1530 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1531 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1532 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1533 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1534 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1535 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1536 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1537 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1538 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1539 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1540 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1541 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1542 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1543 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1544 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1545 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1546 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1547 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1548 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1549 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1550 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1551 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1552 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1553 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1554 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1555 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1556 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1557 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1558 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1559 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1560 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1561 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1562 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1563 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1564 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1565 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1566 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1567 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1568 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1569 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1570 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1571 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1572 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1573 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1574 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1575 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1576 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1577 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1578 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1579 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1580 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1581 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1582 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1583 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1584 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1585 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1586 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1587 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1588 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1589 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1590 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1591 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1592 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1593 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1594 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1595 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1596 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1597 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1598 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1599 --><div class="ghost-line" aria-hidden="true"></div>
-  <!-- 1600 --><div class="ghost-line" aria-hidden="true"></div>
+  -
 
 </body>
 </html>
