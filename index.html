@@ -1605,12 +1605,25 @@
       const msg=document.getElementById('photoInboxMsg');
       const count=document.getElementById('photoCount');
       if(!cont) return;
+      
+      msg.textContent = ''; // Clear previous messages
+      
       const { data, error } = await sb.from(PHOTO_SHARES_TABLE)
         .select('id,username,image_url,created_at')
         .order('created_at',{ascending:false})
         .limit(90);
-      if(error){ msg.textContent='Failed to load photos.'; return; }
+
+      if(error){
+          console.error("Photo Inbox Error:", error.message);
+          msg.textContent='Failed to load photos. (Check Supabase RLS policies)'; 
+          return; 
+      }
+      
       count.textContent = `(${(data||[]).length})`;
+      if (!data || data.length === 0) {
+        msg.textContent = 'No photos have been shared yet.';
+      }
+
       cont.innerHTML = (data||[]).map(p=>`
         <div class="border rounded-xl overflow-hidden shadow-sm">
           <img src="${escapeHtml(p.image_url)}" class="w-full h-48 object-cover" alt="${escapeHtml(p.username)}"/>
@@ -1669,6 +1682,5 @@
       window.addEventListener('beforeunload', saveState);
     })();
   </script>
-
 </body>
 </html>
