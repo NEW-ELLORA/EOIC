@@ -108,7 +108,7 @@
           <span id="setRunStatus" class="ml-2 text-sm text-gray-600"></span>
         </div>
         <p id="imageTip" class="mt-3 text-xs text-amber-700">
-          Tip: Paste a <em>direct</em> image URL ending in .png, .jpg, .jpeg, .gif, or .webp. Links like <code>https://ibb.co/…</code> are pages, not image files.
+          Tip: You can paste a direct image URL (.png/.jpg/.jpeg/.gif/.webp) <em>or</em> a base64 data URL starting with <code>data:image/*;base64,</code>.
         </p>
       </div>
 
@@ -197,9 +197,9 @@
         <div class="text-sm text-amber-700 mt-1" id="photoCountdown"></div>
       </div>
 
-      <!-- Fastest Finger (Photo) — earliest uploads overall (unchanged) -->
+      <!-- Photo fastest (earliest uploads) -->
       <div class="bg-white rounded-2xl shadow-xl p-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Fastest Finger (Photo) — Top 3 (earliest uploads)</h2>
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Fastest Finger (Photo) — Top 3</h2>
         <div id="photoFastestListAdmin" class="text-sm text-gray-700">Waiting for photos...</div>
       </div>
 
@@ -258,7 +258,7 @@
     <div id="waitingArea" class="bg-white rounded-2xl shadow-xl p-8 text-center">
       <div class="text-6xl mb-4 animate-bounce">⚔️</div>
       <h2 class="text-2xl font-bold text-gray-800 mb-2">Preparing for Battle</h2>
-      <p class="text-gray-600">Waiting for the next question from the battle master...</p>
+      <p class="text-gray-600" id="waitingMsg">Waiting for the next question from the battle master...</p>
     </div>
 
     <!-- ==== PHOTO SHARING: Participant Uploader ==== -->
@@ -277,10 +277,9 @@
         <div id="photoShareMsg" class="text-sm text-gray-600"></div>
       </div>
 
-      <!-- ⚡ Fastest Finger (live) within the photo card -->
       <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
         <div class="flex items-center justify-between">
-          <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Photo) — Top 3 (earliest uploads)</h3>
+          <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Photo) — Top 3</h3>
           <button class="text-xs px-2 py-1 bg-amber-200 rounded hover:bg-amber-300" onclick="updatePhotoFastest()">Refresh</button>
         </div>
         <div id="photoFastestList" class="mt-3 text-amber-900 text-sm">Waiting for photos...</div>
@@ -302,7 +301,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ===================== STATE ===================== */
-const STORAGE_KEY = 'warriorQuizState_v10';
+const STORAGE_KEY = 'warriorQuizState_v11';
 const SETS_KEY = 'warriorQuizSets_v2';
 const LAST_SET_KEY = 'warriorQuizLastSetName';
 const SETS_TABLE = 'question_sets';
@@ -388,11 +387,16 @@ function initializeParticipants(){
 }
 
 /* ===================== HELPERS ===================== */
-const isDirectImageUrl = (u) => /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u||'');
+/* accept direct image files *and* base64 data URLs */
+const isDirectImageUrl = (u) => {
+  if (!u) return false;
+  if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(u)) return true;
+  return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u);
+};
 const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
 
-/* ========== Resilient realtime support ========== */
+/* ========== Realtime & soft refresh ========== */
 let arenaHub = null;          
 let lastEventAt = Date.now(); 
 const SOFT_REFRESH_MS = 6000; 
@@ -553,7 +557,6 @@ function setCurrentQuestion(q){
     startTime:new Date(q.start_time).getTime(),
     endsAt:new Date(q.ends_at).getTime()
   };
-  // capture run_id from any in-progress question so history knows the current set
   if (q.run_id) { gameState.setRunner.runId = q.run_id; saveState(); }
   if(gameState.userType==='participant') displayQuestionToParticipants();
   startOrSyncTimer();
@@ -565,6 +568,7 @@ function clearQuestionUI(){
   if(gameState.userType==='participant'){
     document.getElementById('questionArea').classList.add('hidden');
     document.getElementById('waitingArea').classList.remove('hidden');
+    document.getElementById('waitingMsg').textContent = 'Waiting for the next question from the battle master...';
   }
   updateCurrentQuestionStatus();
   const ff=document.getElementById('fastestFinger');
@@ -581,8 +585,12 @@ function displayQuestionToParticipants(){
 
   const imgWrap=document.getElementById('participantImageWrap');
   const img=document.getElementById('participantImage');
-  if(q.image_url && q.image_url.trim() !== ''){ imgWrap.classList.remove('hidden'); img.src=q.image_url; }
-  else { imgWrap.classList.add('hidden'); img.src=''; }
+  if(q.image_url && q.image_url.trim() !== ''){
+    imgWrap.classList.remove('hidden');
+    img.src=q.image_url;  // supports data: and normal URLs
+  } else {
+    imgWrap.classList.add('hidden'); img.src='';
+  }
 
   document.getElementById('participantQuestionText').textContent=`${q.text} (Points: ${q.points})`;
   const optionsContainer=document.getElementById('optionsContainer');
@@ -607,6 +615,21 @@ function confettiBurst(){
     setTimeout(()=>d.remove(), 2400);
   }
 }
+
+/* 👉 NEW: after answering, immediately hide question locally & stop timer */
+function hideQuestionForParticipant(message){
+  clearInterval(gameState.questionTimer);
+  gameState.questionTimer=null;
+  const qa=document.getElementById('questionArea');
+  const wa=document.getElementById('waitingArea');
+  if(qa) qa.classList.add('hidden');
+  if(wa){
+    wa.classList.remove('hidden');
+    const msgEl=document.getElementById('waitingMsg');
+    if(msgEl) msgEl.textContent = message || 'Answer received. Waiting for the next question...';
+  }
+}
+
 async function submitAnswer(answer){
   const q=gameState.currentQuestion;
   if(!q||!gameState.currentUser) return;
@@ -615,6 +638,10 @@ async function submitAnswer(answer){
   const timeTaken=now-q.startTime;
   const isCorrect=(answer===q.correct);
   disableAndHighlight(answer,q.correct);
+
+  // stop local countdown and switch to waiting screen right away
+  hideQuestionForParticipant(isCorrect ? 'Nice! Waiting for the next question…' : 'Answer submitted. Waiting for the next question…');
+
   const { error } = await sb.from('answers').insert({
     question_id:q.id, username:gameState.currentUser, answer, time_ms:timeTaken, is_correct:isCorrect
   });
@@ -720,9 +747,7 @@ async function computeLeaderboard(){
       online: presenceRoster.has(u) 
     }))
     .sort((a,b)=>{
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
+      if (b.score !== a.score) return b.score - a.score;
       if (a.avgTime === null && b.avgTime === null) return 0;
       if (a.avgTime === null) return 1;
       if (b.avgTime === null) return -1;
@@ -745,22 +770,10 @@ async function refreshAllLeaderboards(){
     if(chartInstance) chartInstance.destroy();
     chartInstance = new Chart(ctx, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Points',
-          data: scores,
-          borderWidth: 2,
-          borderRadius: 10,
-          borderColor: '#ffffff',
-          backgroundColor: ['#f87171','#fb923c','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#facc15']
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, animation: { duration: 1000, easing: 'easeOutCubic' },
-        plugins: { legend: { display: false } },
-        scales: { x: { ticks: { color: '#6b7280' }, grid: { display:false } }, y: { beginAtZero: true, ticks: { color: '#6b7280' } } }
-      }
+      data: { labels, datasets: [{ label: 'Points', data: scores, borderWidth: 2, borderRadius: 10, borderColor: '#ffffff',
+        backgroundColor: ['#f87171','#fb923c','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#facc15'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { ticks: { color: '#6b7280' }, grid: { display:false } }, y: { beginAtZero: true, ticks: { color: '#6b7280' } } } }
     });
   }
 
@@ -853,10 +866,7 @@ function updateActiveParticipants(){
 
 /* ====== FASTEST FINGER HISTORY (STRICTLY CURRENT RUN) ====== */
 async function resolveCurrentRunId(){
-  // Prefer in-memory runId
   if (gameState.setRunner.runId) return gameState.setRunner.runId;
-
-  // Else, infer from latest question (most recent) so viewers see the latest set
   const { data: lastQ } = await sb.from('questions')
     .select('run_id')
     .order('start_time', { ascending:false })
@@ -865,7 +875,6 @@ async function resolveCurrentRunId(){
   if (rid) { gameState.setRunner.runId = rid; saveState(); }
   return rid;
 }
-
 async function refreshFastestHistory(){
   const btn = document.getElementById('ffRefreshBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Loading...'; }
@@ -883,7 +892,7 @@ async function refreshFastestHistory(){
     const { data: qList, error: qErr } = await sb.from('questions')
       .select('id,text,start_time')
       .eq('run_id', runId)
-      .order('start_time', { ascending:true }); // chronological within this set
+      .order('start_time', { ascending:true });
 
     if(qErr) throw qErr;
     
@@ -915,7 +924,7 @@ async function refreshFastestHistory(){
     });
 
     const bodyHtml = qList.map((q, idx)=>{
-      const qLabel = `Q${idx+1}`; // exactly as many rows as asked in THIS set
+      const qLabel = `Q${idx+1}`;
       const rowCells = users.map(u=>{
         const rec = (byQ[q.id]||{})[u];
         if(!rec) return `<td class="ff-cell px-2 py-2 text-gray-300">—</td>`;
@@ -1135,9 +1144,11 @@ async function loadSelectedSet(){
   const wrap=document.getElementById('setQuestions');
   wrap.innerHTML='';
   set.items.forEach(item=>addQuestionRow(item));
+
   const bad = set.items.filter(i=>i.image_url && !isDirectImageUrl(i.image_url)).length;
-  if(bad) document.getElementById('imageTip').innerHTML = `⚠️ ${bad} image link(s) look like pages, not images. Paste a direct image URL ending in .png/.jpg/.jpeg/.gif/.webp.`;
-  else document.getElementById('imageTip').textContent = 'Tip: Paste a direct image URL ending in .png, .jpg, .jpeg, .gif, or .webp.';
+  if(bad) document.getElementById('imageTip').innerHTML = `⚠️ ${bad} image link(s) look unusual. Use a direct image URL (.png/.jpg/.jpeg/.gif/.webp) or a base64 data URL starting with <code>data:image/*;base64,</code>.`;
+  else document.getElementById('imageTip').innerHTML = `Tip: You can paste a direct image URL (.png/.jpg/.jpeg/.gif/.webp) <em>or</em> a base64 data URL starting with <code>data:image/*;base64,</code>.`;
+
   alert('📥 Set loaded: ' + name);
 }
 
@@ -1146,18 +1157,16 @@ async function startSetRun(){
   const { name, items } = collectSetFromUI();
   if(items.length===0){ alert('Add some questions first'); return; }
 
-  // End any lingering questions from previous runs
   await sb.from('questions').update({ ended:true }).eq('ended', false);
 
-  // NEW RUN: assign a fresh runId and immediately reset history to this run only
   gameState.setRunner.running = true;
   gameState.setRunner.queue   = items;
   gameState.setRunner.cursor  = 0;
   gameState.setRunner.runId   = makeRunId();
-  saveState();          // persist so all tabs/viewers scope to this run
+  saveState();
 
   document.getElementById('setRunStatus').textContent = `Running "${name}" (${items.length} questions)`;
-  refreshFastestHistory(); // clear/replace table for new set right away
+  refreshFastestHistory();
   runNextInQueue(name);
 }
 function cancelSetRun(){
@@ -1178,7 +1187,7 @@ async function runNextInQueue(setName){
   const ends = new Date(start.getTime() + (item.timer||30)*1000 + 500);
 
   if(item.image_url && !isDirectImageUrl(item.image_url)){
-    console.warn('Image URL may not be a direct image. Attempting to display anyway:', item.image_url);
+    console.warn('Image URL may not be a direct image (or data URL). Attempting to display anyway:', item.image_url);
   }
 
   const payload = {
@@ -1215,7 +1224,7 @@ async function resetGame(){
     document.getElementById('participantScore').textContent = '0';
     gameState.prevRanks = {};
     gameState.currentQuestion = null;
-    gameState.setRunner.runId = null; // also clear run scope
+    gameState.setRunner.runId = null;
     clearInterval(gameState.questionTimer);
     updateCurrentQuestionStatus();
     await refreshAllLeaderboards();
@@ -1540,7 +1549,6 @@ function closeLeaderboardModal(){
     });
   }
 
-  // On load, history is scoped to the current/last run only.
   refreshFastestHistory();
   updatePhotoFastest();
 
