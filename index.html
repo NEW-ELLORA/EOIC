@@ -196,13 +196,20 @@
         <div class="text-sm text-gray-600 mt-1" id="photoToggleMsg"></div>
         <div class="text-sm text-amber-700 mt-1" id="photoCountdown"></div>
       </div>
+
+      <!-- ★ NEW: Admin “Fastest Finger (Photo)” (Top 3) -->
+      <div class="bg-white rounded-2xl shadow-xl p-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Fastest Finger (Photo) — Top 3</h2>
+        <div id="photoFastestListAdmin" class="text-sm text-gray-700">Waiting for answers...</div>
+      </div>
+
       <!-- Inbox -->
-      <div class="bg-white rounded-2xl shadow-xl p-6 lg:col-span-2">
+      <div class="bg-white rounded-2xl shadow-xl p-6 lg:col-span-1 lg:col-start-3">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-2xl font-bold text-gray-800">🗃️ Photo Inbox <span id="photoCount" class="text-gray-500 text-lg"></span></h2>
           <button onclick="refreshPhotoInbox()" class="bg-gray-800 hover:bg-gray-900 text-white text-sm px-3 py-2 rounded-lg">Refresh</button>
         </div>
-        <div id="photoInbox" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+        <div id="photoInbox" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4"></div>
         <div id="photoInboxMsg" class="text-sm text-gray-600 mt-3"></div>
       </div>
     </div>
@@ -273,7 +280,7 @@
       <!-- ⚡ Fastest Finger (live) within the photo card -->
       <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
         <div class="flex items-center justify-between">
-          <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Live)</h3>
+          <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Live) — Top 3</h3>
           <button class="text-xs px-2 py-1 bg-amber-200 rounded hover:bg-amber-300" onclick="updatePhotoFastest()">Refresh</button>
         </div>
         <div id="photoFastestList" class="mt-3 text-amber-900 text-sm">Waiting for answers...</div>
@@ -384,13 +391,12 @@ const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;
 function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
 
 // ========== Resilient realtime support ==========
-let arenaHub = null;          // unified DB events channel
-let lastEventAt = Date.now(); // heartbeat
-const SOFT_REFRESH_MS = 6000; // if quiet for > this, poll
+let arenaHub = null;          
+let lastEventAt = Date.now(); 
+const SOFT_REFRESH_MS = 6000; 
 
 function bumpHeartbeat(){ lastEventAt = Date.now(); }
 
-// Soft refresh: read-only updates
 async function softRefresh(){
   try{
     await Promise.allSettled([
@@ -405,7 +411,6 @@ async function softRefresh(){
   }catch{}
 }
 
-// Unified realtime hub (replace many small channels)
 function wireRealtime(){
   if (arenaHub) { try{ arenaHub.unsubscribe(); }catch{} }
 
@@ -456,7 +461,6 @@ function wireRealtime(){
   arenaHub.subscribe(status => { if (status === 'SUBSCRIBED') bumpHeartbeat(); });
 }
 
-// Watchdog: poll if realtime is quiet (sleeping tab / flaky net)
 setInterval(() => {
   if (Date.now() - lastEventAt > SOFT_REFRESH_MS) { softRefresh(); bumpHeartbeat(); }
 }, 2000);
@@ -938,14 +942,20 @@ async function refreshFastestHistory(){
   }
 }
 
-// ====== MINI FASTEST LIST inside Photo Card ======
+/* ====== ★ UPDATED: Mini Fastest List for Photo (Top 3, both Admin + Participant) ====== */
 async function updatePhotoFastest(){
-  const el = document.getElementById('photoFastestList');
-  if(!el) return;
+  // Render targets: participant card + admin card (if present)
+  const els = [
+    document.getElementById('photoFastestList'),
+    document.getElementById('photoFastestListAdmin')
+  ].filter(Boolean);
+
+  if(!els.length) return;
 
   try{
     let q = gameState.currentQuestion;
 
+    // Fallback to latest question of the latest run, or latest overall if no run
     if(!q){
       let runId = gameState.setRunner?.runId || null;
       if(!runId){
@@ -955,7 +965,6 @@ async function updatePhotoFastest(){
           .limit(1);
         if(lastQ && lastQ.length && lastQ[0].run_id) runId = lastQ[0].run_id;
       }
-      
       if(runId){
         const { data: qd } = await sb.from('questions')
           .select('id,text')
@@ -963,39 +972,51 @@ async function updatePhotoFastest(){
           .order('start_time', { ascending:false })
           .limit(1);
         if(qd && qd.length) q = { id: qd[0].id };
+      }else{
+        const { data: qd2 } = await sb.from('questions')
+          .select('id,text')
+          .order('start_time', { ascending:false })
+          .limit(1);
+        if(qd2 && qd2.length) q = { id: qd2[0].id };
       }
     }
 
-    if(!q){ el.textContent = 'No questions yet for this run.'; return; }
+    if(!q){
+      els.forEach(el => el.textContent = 'No questions yet for this run.');
+      return;
+    }
 
     const { data: answers } = await sb.from('answers')
       .select('username,time_ms,is_correct')
       .eq('question_id', q.id);
 
-    if(!answers || !answers.length){ el.textContent = 'No answers yet...'; return; }
+    const correct = (answers||[])
+      .filter(a => a.is_correct)
+      .sort((a,b)=>a.time_ms - b.time_ms)
+      .slice(0, 3); // ★ only top 3
 
-    const rows = answers
-      .map(a=>({ ...a, s: (a.time_ms/1000).toFixed(1) }))
-      .sort((a,b)=>a.time_ms-b.time_ms);
+    if(!correct.length){
+      els.forEach(el => el.textContent = 'No correct answers yet...');
+      return;
+    }
 
-    const html = rows.map((r,i)=>{
+    const html = correct.map((r,i)=>{
       const place = i===0?'🥇':i===1?'🥈':i===2?'🥉':'🏅';
       const avatar = gameState.participants[r.username]?.avatar || '⚡';
-      const mark = r.is_correct ? '✔' : '✖';
-      const clr = r.is_correct ? 'text-green-700' : 'text-red-700';
       return `<div class="flex items-center justify-between py-1">
         <div class="flex items-center gap-2">
           <span>${place}</span>
           <span class="text-xl">${avatar}</span>
           <span class="font-semibold">${r.username}</span>
         </div>
-        <div class="font-bold ${clr}">${r.s}s ${mark}</div>
+        <div class="font-bold text-green-700">${(r.time_ms/1000).toFixed(1)}s ✔</div>
       </div>`;
     }).join('');
-    el.innerHTML = html;
+
+    els.forEach(el => el.innerHTML = html);
   }catch(err){
     console.error('updatePhotoFastest', err);
-    el.textContent = '❌ Could not load fastest data.';
+    els.forEach(el => el.textContent = '❌ Could not load fastest data.');
   }
 }
 
@@ -1544,3 +1565,4 @@ function closeLeaderboardModal(){
 </script>
 </body>
 </html>
+
