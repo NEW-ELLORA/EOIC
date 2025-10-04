@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -253,6 +253,7 @@
       </div>
       <div id="participantQuestionText" class="text-xl text-gray-800 mb-6 p-4 bg-amber-50 rounded-xl border-l-4 border-amber-500">Waiting for question...</div>
       <div id="optionsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      <p id="answerLockedMsg" class="mt-4 text-sm text-gray-600"></p>
     </div>
 
     <div id="waitingArea" class="bg-white rounded-2xl shadow-xl p-8 text-center">
@@ -320,7 +321,9 @@ let gameState = {
   setRunner: { running:false, queue:[], cursor:0, timerId:null, runId:null },
   photoShareAllowed: false,
   photoShareExpiresAt: null,
-  photos: []
+  photos: [],
+  // remember participant selection for reveal time & re-renders
+  lastSelected: null
 };
 let photoCountdownTimerId = null;
 
@@ -387,13 +390,12 @@ function initializeParticipants(){
 }
 
 /* ===================== HELPERS ===================== */
-/* accept direct image files *and* base64 data URLs */
 const isDirectImageUrl = (u) => {
   if (!u) return false;
   if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(u)) return true;
   return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u);
 };
-const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
 function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
 
 /* ========== Realtime & soft refresh ========== */
@@ -593,6 +595,8 @@ function displayQuestionToParticipants(){
   }
 
   document.getElementById('participantQuestionText').textContent=`${q.text} (Points: ${q.points})`;
+  document.getElementById('answerLockedMsg').textContent = '';
+
   const optionsContainer=document.getElementById('optionsContainer');
   optionsContainer.innerHTML='';
   Object.entries(q.options).forEach(([key,val])=>{
@@ -603,6 +607,13 @@ function displayQuestionToParticipants(){
     btn.onclick=()=>submitAnswer(key);
     optionsContainer.appendChild(btn);
   });
+
+  // If the participant already answered this question, keep buttons disabled across re-renders
+  if (gameState.lastSelected != null) {
+    disableButtonsOnly();
+    const locked = document.getElementById('answerLockedMsg');
+    if (locked) locked.textContent = 'Answer locked. Waiting for reveal…';
+  }
 }
 function confettiBurst(){
   for(let i=0;i<36;i++){
@@ -616,7 +627,7 @@ function confettiBurst(){
   }
 }
 
-/* 👉 NEW: after answering, immediately hide question locally & stop timer */
+// Keep for other use-cases, but DO NOT call this on submit anymore
 function hideQuestionForParticipant(message){
   clearInterval(gameState.questionTimer);
   gameState.questionTimer=null;
@@ -630,36 +641,27 @@ function hideQuestionForParticipant(message){
   }
 }
 
-async function submitAnswer(answer){
-  const q=gameState.currentQuestion;
-  if(!q||!gameState.currentUser) return;
-  if(Date.now()>=q.endsAt){ endQuestion(); return; }
-  const now=Date.now();
-  const timeTaken=now-q.startTime;
-  const isCorrect=(answer===q.correct);
-  disableAndHighlight(answer,q.correct);
-
-  // stop local countdown and switch to waiting screen right away
-  hideQuestionForParticipant(isCorrect ? 'Nice! Waiting for the next question…' : 'Answer submitted. Waiting for the next question…');
-
-  const { error } = await sb.from('answers').insert({
-    question_id:q.id, username:gameState.currentUser, answer, time_ms:timeTaken, is_correct:isCorrect
-  });
-  if(error){ console.warn('submitAnswer error', error); return; }
-  if(isCorrect) confettiBurst();
-  setTimeout(()=>{
-    refreshAllLeaderboards();
-    updateFastestFinger();
-    refreshFastestHistory();
-  }, 150);
-}
-function disableAndHighlight(answer, correct){
+function disableButtonsOnly(){
   const buttons=[...document.querySelectorAll('#optionsContainer button')];
   buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-50','cursor-not-allowed'); });
+}
+
+function revealCorrectThenPause(correctKey, selectedKey){
+  const buttons=[...document.querySelectorAll('#optionsContainer button')];
+  buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-50','cursor-not-allowed'); });
+
   buttons.forEach(btn=>{
     const key=btn.dataset.key;
-    if(key===correct){ btn.classList.remove('from-amber-400','to-amber-600'); btn.classList.add('from-green-400','to-green-600'); }
-    else if(key===answer&&answer!==correct){ btn.classList.remove('from-amber-400','to-amber-600'); btn.classList.add('from-red-400','to-red-600'); }
+    btn.classList.remove('from-amber-400','to-amber-600','from-red-400','to-red-600','from-green-400','to-green-600');
+
+    if(key===correctKey){
+      btn.classList.add('from-green-400','to-green-600');
+      btn.classList.remove('opacity-50','cursor-not-allowed');
+    } else if(selectedKey && key===selectedKey && selectedKey!==correctKey){
+      btn.classList.add('from-red-400','to-red-600');
+    } else {
+      btn.classList.add('from-amber-400','to-amber-600');
+    }
   });
 }
 
@@ -685,19 +687,25 @@ function startOrSyncTimer(){
   tick();
   gameState.questionTimer=setInterval(tick,1000);
 }
-async function endQuestion(){
-  clearInterval(gameState.questionTimer);
-  gameState.questionTimer=null;
-  gameState.currentQuestion=null;
-  if(gameState.userType==='participant'){
-    document.getElementById('questionArea').classList.add('hidden');
-    document.getElementById('waitingArea').classList.remove('hidden');
-  }
-  updateCurrentQuestionStatus();
-  updateFastestFinger();
-  refreshAllLeaderboards();
-  refreshFastestHistory();
-  saveState();
+
+/* ===================== ANSWER SUBMIT (UPDATED) ===================== */
+async function submitAnswer(answer){
+  const q=gameState.currentQuestion;
+  if(!q||!gameState.currentUser) return;
+  if(Date.now()>=q.endsAt){ endQuestion(); return; }
+  const now=Date.now();
+  const timeTaken=now-q.startTime;
+  const isCorrect=(answer===q.correct);
+
+  gameState.lastSelected = answer;
+  disableButtonsOnly();
+  const locked = document.getElementById('answerLockedMsg');
+  if (locked) locked.textContent = 'Answer locked. Waiting for reveal…';
+
+  const { error } = await sb.from('answers').insert({
+    question_id:q.id, username:gameState.currentUser, answer, time_ms:timeTaken, is_correct:isCorrect
+  });
+  if(error){ console.warn('submitAnswer error', error); return; }
 }
 
 /* ===================== LEADERBOARD ===================== */
@@ -1152,7 +1160,7 @@ async function loadSelectedSet(){
   alert('📥 Set loaded: ' + name);
 }
 
-/* ===================== RUN SET (creates new run_id and resets history view) ===================== */
+/* ===================== RUN SET ===================== */
 async function startSetRun(){
   const { name, items } = collectSetFromUI();
   if(items.length===0){ alert('Add some questions first'); return; }
@@ -1513,6 +1521,50 @@ function initPhotoSharingRealtime(){
     .subscribe();
 }
 
+/* ===================== QUESTION END (REVEAL FLOW) ===================== */
+async function endQuestion(){
+  clearInterval(gameState.questionTimer);
+  gameState.questionTimer=null;
+
+  const q = gameState.currentQuestion;
+  if(gameState.userType==='participant' && q){
+    revealCorrectThenPause(q.correct, gameState.lastSelected);
+
+    if(gameState.lastSelected === q.correct){ confettiBurst(); }
+
+    setTimeout(()=>{
+      const qa=document.getElementById('questionArea');
+      const wa=document.getElementById('waitingArea');
+      if(qa) qa.classList.add('hidden');
+      if(wa){
+        wa.classList.remove('hidden');
+        const msgEl=document.getElementById('waitingMsg');
+        if(msgEl) msgEl.textContent='Waiting for the next question from the battle master...';
+      }
+
+      gameState.currentQuestion=null;
+      gameState.lastSelected=null;
+
+      updateCurrentQuestionStatus();
+      updateFastestFinger();
+      refreshAllLeaderboards();
+      refreshFastestHistory();
+      saveState();
+    }, 1500);
+  } else {
+    gameState.currentQuestion=null;
+    if(gameState.userType==='participant'){
+      document.getElementById('questionArea').classList.add('hidden');
+      document.getElementById('waitingArea').classList.remove('hidden');
+    }
+    updateCurrentQuestionStatus();
+    updateFastestFinger();
+    refreshAllLeaderboards();
+    refreshFastestHistory();
+    saveState();
+  }
+}
+
 /* ===================== GLOBAL HELPERS ===================== */
 function openLeaderboardModal(){
   document.getElementById('leaderboardModal').classList.remove('hidden');
@@ -1553,7 +1605,9 @@ function closeLeaderboardModal(){
   updatePhotoFastest();
 
   window.addEventListener('beforeunload', saveState);
+  wireRealtime();
 })();
 </script>
 </body>
 </html>
+
