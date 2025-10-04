@@ -269,7 +269,6 @@
         <img id="photoPreview" class="hidden w-40 h-40 object-cover rounded-xl border" alt="Preview"/>
         <div id="photoShareMsg" class="text-sm text-gray-600"></div>
       </div>
-
     </div>
     <!-- ==== /PHOTO SHARING ==== -->
 
@@ -459,7 +458,6 @@ function login(type){
   const password = document.getElementById('password').value.trim();
   if(!username||!password){ alert('Please enter both username and password!'); return; }
   
-  // Check if a participant is already logged in
   if (type === 'participant' && presenceRoster.has(username)) {
     alert(`Warrior "${username}" is already in the arena! Another warrior cannot log in with the same name.`);
     return;
@@ -488,7 +486,7 @@ function login(type){
   fetchPhotoShareAllowed();
   refreshPhotoInbox();
   refreshFastestHistory();
-  wireRealtime(); // start unified realtime
+  wireRealtime();
 }
 function showDashboard(type){
   document.getElementById('loginScreen').classList.add('hidden');
@@ -833,43 +831,23 @@ function updateActiveParticipants(){
   if(el) el.textContent=`${count} warriors online`;
 }
 
-// ====== FASTEST FINGER HISTORY (scoped to current run) ======
+// ====== FASTEST FINGER HISTORY ======
 async function refreshFastestHistory(){
   const btn = document.getElementById('ffRefreshBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Loading...'; }
 
   try{
-    let runId = gameState.setRunner?.runId || null;
-    if(!runId){
-      const { data: lastQ } = await sb.from('questions')
-        .select('run_id,start_time')
-        .order('start_time', { ascending:false })
-        .limit(1);
-      if(lastQ && lastQ.length && lastQ[0].run_id) runId = lastQ[0].run_id;
-    }
+    const { data: qList, error: qErr } = await sb.from('questions')
+      .select('id,text,start_time')
+      .order('start_time', { ascending: false })
+      .limit(15);
 
-    let qList = [];
-    if(runId){
-      const { data: qs, error: qErr } = await sb.from('questions')
-        .select('id,text,start_time')
-        .eq('run_id', runId)
-        .order('start_time', { ascending:false });
-      if(qErr) throw qErr;
-      qList = qs || [];
-    }else{
-      const dayStart = new Date(); dayStart.setHours(0,0,0,0);
-      const { data: qs, error: qErr } = await sb.from('questions')
-        .select('id,text,start_time')
-        .gte('start_time', dayStart.toISOString())
-        .order('start_time', { ascending:false });
-      if(qErr) throw qErr;
-      qList = qs || [];
-    }
+    if(qErr) throw qErr;
 
-    if(!qList.length){
+    if(!qList || !qList.length){
       document.getElementById('ffHead').innerHTML='';
       document.getElementById('ffBody').innerHTML='';
-      document.getElementById('ffMsg').textContent='No questions for this run yet.';
+      document.getElementById('ffMsg').textContent='No questions have been asked yet.';
       return;
     }
 
@@ -1464,7 +1442,6 @@ function closeLeaderboardModal(){
     });
   }
 
-  // Initial fastest history
   refreshFastestHistory();
 
   window.addEventListener('beforeunload', saveState);
