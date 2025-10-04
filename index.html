@@ -156,10 +156,10 @@
       <div id="adminLeaderboard" class="space-y-2"></div>
     </div>
 
-    <!-- ⏱️ FASTEST FINGER LOG (CURRENT RUN) -->
+    <!-- ⏱️ FASTEST FINGER LOG (CURRENT RUN ONLY) -->
     <div class="mt-6 bg-white rounded-2xl shadow-xl p-6">
       <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">⏱️ Fastest Finger Log (Current Run)</h2>
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">⏱️ Fastest Finger Log (This Set)</h2>
         <button id="ffRefreshBtn" class="text-sm px-3 py-1 rounded bg-gray-100 hover:bg-gray-200" onclick="refreshFastestHistory()">Refresh</button>
       </div>
       <div class="overflow-auto">
@@ -197,9 +197,9 @@
         <div class="text-sm text-amber-700 mt-1" id="photoCountdown"></div>
       </div>
 
-      <!-- ★ Admin “Fastest Finger (Photo)” (Top 3 earliest uploads) -->
+      <!-- Fastest Finger (Photo) — earliest uploads overall (unchanged) -->
       <div class="bg-white rounded-2xl shadow-xl p-6">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Fastest Finger (Photo) — Top 3</h2>
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Fastest Finger (Photo) — Top 3 (earliest uploads)</h2>
         <div id="photoFastestListAdmin" class="text-sm text-gray-700">Waiting for photos...</div>
       </div>
 
@@ -280,7 +280,7 @@
       <!-- ⚡ Fastest Finger (live) within the photo card -->
       <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
         <div class="flex items-center justify-between">
-          <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Photo) — Top 3</h3>
+          <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Photo) — Top 3 (earliest uploads)</h3>
           <button class="text-xs px-2 py-1 bg-amber-200 rounded hover:bg-amber-300" onclick="updatePhotoFastest()">Refresh</button>
         </div>
         <div id="photoFastestList" class="mt-3 text-amber-900 text-sm">Waiting for photos...</div>
@@ -296,13 +296,13 @@
 </div>
 
 <script>
-// ===================== SUPABASE =====================
+/* ===================== SUPABASE ===================== */
 const SUPABASE_URL = 'https://iondedmhlyonsmpqulhq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvbmRlZG1obHlvbnNtcHF1bGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyOTQ2MjQsImV4cCI6MjA3NDg3MDYyNH0.WFo2SfBf_Z2_e6C_pSuT8YStTCAD9pdGo90JNrgZdzM';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ===================== STATE =====================
-const STORAGE_KEY = 'warriorQuizState_v11'; // Incremented version for new state structure
+/* ===================== STATE ===================== */
+const STORAGE_KEY = 'warriorQuizState_v10';
 const SETS_KEY = 'warriorQuizSets_v2';
 const LAST_SET_KEY = 'warriorQuizLastSetName';
 const SETS_TABLE = 'question_sets';
@@ -334,7 +334,7 @@ const credentials = {
   }
 };
 
-// ===== Presence (Realtime) =====
+/* ===== Presence (Realtime) ===== */
 let presenceChannel = null;
 let presenceRoster = new Set();
 function joinPresence(usernameOrViewer){
@@ -355,7 +355,7 @@ function joinPresence(usernameOrViewer){
     });
 }
 
-// ===================== PERSISTENCE =====================
+/* ===================== PERSISTENCE ===================== */
 function saveState(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     currentUser:gameState.currentUser,
@@ -364,7 +364,7 @@ function saveState(){
     prevRanks:gameState.prevRanks,
     photoShareAllowed:gameState.photoShareAllowed,
     photoShareExpiresAt:gameState.photoShareExpiresAt,
-    setRunnerRunId: gameState.setRunner.runId // Persist the run ID
+    currentRunId:gameState.setRunner.runId || null
   }));
 }
 function loadState(){
@@ -377,7 +377,7 @@ function loadState(){
     gameState.prevRanks=s.prevRanks||{};
     gameState.photoShareAllowed=!!s.photoShareAllowed;
     gameState.photoShareExpiresAt = s.photoShareExpiresAt ?? null;
-    gameState.setRunner.runId = s.setRunnerRunId || null; // Load the run ID
+    if (s.currentRunId) gameState.setRunner.runId = s.currentRunId;
   }catch{}
 }
 function initializeParticipants(){
@@ -387,12 +387,12 @@ function initializeParticipants(){
   });
 }
 
-// ===================== HELPERS =====================
+/* ===================== HELPERS ===================== */
 const isDirectImageUrl = (u) => /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u||'');
 const escapeHtml = s => (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
 
-// ========== Resilient realtime support ==========
+/* ========== Resilient realtime support ========== */
 let arenaHub = null;          
 let lastEventAt = Date.now(); 
 const SOFT_REFRESH_MS = 6000; 
@@ -419,7 +419,12 @@ function wireRealtime(){
   arenaHub = sb.channel('arena-hub');
 
   const tables = [
-    'answers', 'questions', 'score_adjustments', 'participant_flags', 'photo_share_toggle', 'photo_shares'
+    'answers',
+    'questions',
+    'score_adjustments',
+    'participant_flags',
+    'photo_share_toggle',
+    'photo_shares'
   ];
 
   tables.forEach(t => {
@@ -433,12 +438,8 @@ function wireRealtime(){
           break;
         case 'questions': {
           const q = payload.new;
-          const isRelevant = q && q.run_id === gameState.setRunner.runId;
-          if (isRelevant && !q.ended && new Date(q.ends_at) > new Date()) {
-              setCurrentQuestion(q);
-          } else {
-              clearQuestionUI();
-          }
+          if (q && !q.ended && new Date(q.ends_at) > new Date()) setCurrentQuestion(q);
+          else clearQuestionUI();
           refreshFastestHistory();
           break;
         }
@@ -468,7 +469,7 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { softRefresh(); bumpHeartbeat(); }});
 window.addEventListener('focus', () => { softRefresh(); bumpHeartbeat(); });
 
-// ===================== LOGIN =====================
+/* ===================== LOGIN ===================== */
 function login(type){
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value.trim();
@@ -488,6 +489,8 @@ function login(type){
   if(type==='participant'){
     if(!gameState.participants[username]) gameState.participants[username]={name:username,avatar:'⚔️',online:true};
     gameState.participants[username].online=true;
+    document.getElementById('participantName').textContent=username;
+    document.getElementById('participantAvatar').textContent=gameState.participants[username].avatar;
   }
   saveState();
   joinPresence(username);
@@ -531,7 +534,7 @@ function logout(){
   refreshAllLeaderboards();
 }
 
-// ===================== ACTIVE QUESTION =====================
+/* ===================== ACTIVE QUESTION ===================== */
 async function fetchActiveQuestion(){
   const { data, error } = await sb.from('questions')
     .select('*')
@@ -540,14 +543,8 @@ async function fetchActiveQuestion(){
     .order('start_time', { ascending: false })
     .limit(1);
   if(error){ console.error('fetchActiveQuestion error', error); return; }
-  if(data && data.length){ 
-    // Only set if it belongs to the current run or if there's no active run
-    if (!gameState.setRunner.runId || data[0].run_id === gameState.setRunner.runId) {
-      setCurrentQuestion(data[0]); 
-    }
-  } else { 
-    clearQuestionUI(); 
-  }
+  if(data && data.length){ setCurrentQuestion(data[0]); }
+  else { clearQuestionUI(); }
 }
 function setCurrentQuestion(q){
   gameState.currentQuestion = {
@@ -556,6 +553,8 @@ function setCurrentQuestion(q){
     startTime:new Date(q.start_time).getTime(),
     endsAt:new Date(q.ends_at).getTime()
   };
+  // capture run_id from any in-progress question so history knows the current set
+  if (q.run_id) { gameState.setRunner.runId = q.run_id; saveState(); }
   if(gameState.userType==='participant') displayQuestionToParticipants();
   startOrSyncTimer();
   updateCurrentQuestionStatus();
@@ -572,7 +571,7 @@ function clearQuestionUI(){
   if(ff) ff.innerHTML='<div class="text-gray-400">Waiting for answers...</div>';
 }
 
-// ===================== PARTICIPANT VIEW =====================
+/* ===================== PARTICIPANT VIEW ===================== */
 function displayQuestionToParticipants(){
   const qa=document.getElementById('questionArea');
   const wa=document.getElementById('waitingArea');
@@ -637,7 +636,7 @@ function disableAndHighlight(answer, correct){
   });
 }
 
-// ===================== TIMER =====================
+/* ===================== TIMER ===================== */
 function startOrSyncTimer(){
   clearInterval(gameState.questionTimer);
   const q=gameState.currentQuestion; if(!q) return;
@@ -674,7 +673,7 @@ async function endQuestion(){
   saveState();
 }
 
-// ===================== LEADERBOARD =====================
+/* ===================== LEADERBOARD ===================== */
 function pointsFromAnswer(record, qMap){
   if(!record.is_correct) return 0;
   const q = qMap[record.question_id];
@@ -721,7 +720,9 @@ async function computeLeaderboard(){
       online: presenceRoster.has(u) 
     }))
     .sort((a,b)=>{
-      if (b.score !== a.score) return b.score - a.score;
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
       if (a.avgTime === null && b.avgTime === null) return 0;
       if (a.avgTime === null) return 1;
       if (b.avgTime === null) return -1;
@@ -800,7 +801,7 @@ function renderLeaderboard(containerId, rows){
   saveState();
 }
 
-// ====== FASTEST FINGER (CURRENT) ======
+/* ====== FASTEST FINGER (CURRENT QUESTION) ====== */
 async function updateFastestFinger(){
   const el=document.getElementById('fastestFinger'); if(!el) return;
   const q=gameState.currentQuestion;
@@ -850,56 +851,62 @@ function updateActiveParticipants(){
   if(el) el.textContent=`${count} warriors online`;
 }
 
-// ====== FASTEST FINGER HISTORY (scoped to current run_id) ======
+/* ====== FASTEST FINGER HISTORY (STRICTLY CURRENT RUN) ====== */
+async function resolveCurrentRunId(){
+  // Prefer in-memory runId
+  if (gameState.setRunner.runId) return gameState.setRunner.runId;
+
+  // Else, infer from latest question (most recent) so viewers see the latest set
+  const { data: lastQ } = await sb.from('questions')
+    .select('run_id')
+    .order('start_time', { ascending:false })
+    .limit(1);
+  const rid = (lastQ && lastQ[0] && lastQ[0].run_id) ? lastQ[0].run_id : null;
+  if (rid) { gameState.setRunner.runId = rid; saveState(); }
+  return rid;
+}
+
 async function refreshFastestHistory(){
   const btn = document.getElementById('ffRefreshBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Loading...'; }
 
-  const currentRunId = gameState.setRunner.runId;
-  const headEl = document.getElementById('ffHead');
-  const bodyEl = document.getElementById('ffBody');
-  const msgEl = document.getElementById('ffMsg');
-
-  if (!currentRunId) {
-    if(headEl) headEl.innerHTML = '';
-    if(bodyEl) bodyEl.innerHTML = '';
-    if(msgEl) msgEl.textContent = 'No active set run. Start a set to view its history.';
-    if(btn){ btn.disabled = false; btn.textContent = 'Refresh'; }
-    return;
-  }
-
   try{
-    // 1. Fetch all questions for the current run_id, ordered by when they started
+    const runId = await resolveCurrentRunId();
+
+    if (!runId) {
+      document.getElementById('ffHead').innerHTML='';
+      document.getElementById('ffBody').innerHTML='';
+      document.getElementById('ffMsg').textContent='No active set yet. Start a set to see history.';
+      return;
+    }
+    
     const { data: qList, error: qErr } = await sb.from('questions')
       .select('id,text,start_time')
-      .eq('run_id', currentRunId)
-      .order('start_time', { ascending:true });
+      .eq('run_id', runId)
+      .order('start_time', { ascending:true }); // chronological within this set
 
     if(qErr) throw qErr;
     
-    if(!qList || !qList.length){
-      if(headEl) headEl.innerHTML='';
-      if(bodyEl) bodyEl.innerHTML='';
-      if(msgEl) msgEl.textContent='Waiting for the first question of this run...';
-      if(btn){ btn.disabled = false; btn.textContent = 'Refresh'; }
+    if(!qList.length){
+      document.getElementById('ffHead').innerHTML='';
+      document.getElementById('ffBody').innerHTML='';
+      document.getElementById('ffMsg').textContent='No questions for this set yet.';
       return;
     }
 
-    // 2. Fetch all answers for those specific question IDs
     const qIds = qList.map(q=>q.id);
     const { data: ans, error: aErr } = await sb.from('answers')
       .select('question_id,username,time_ms,is_correct')
       .in('question_id', qIds);
     if(aErr) throw aErr;
 
-    // 3. Render the table
     const users = Object.keys(credentials.participants);
     const headHtml = `
       <tr class="bg-gray-50">
         <th class="px-3 py-2 text-left font-semibold text-gray-700">Question</th>
         ${users.map(u=>`<th class="px-2 py-2 text-center font-semibold text-gray-700">${u}</th>`).join('')}
       </tr>`;
-    if(headEl) headEl.innerHTML = headHtml;
+    document.getElementById('ffHead').innerHTML = headHtml;
 
     const byQ = {};
     (ans||[]).forEach(r=>{
@@ -908,7 +915,7 @@ async function refreshFastestHistory(){
     });
 
     const bodyHtml = qList.map((q, idx)=>{
-      const qLabel = `Q${idx + 1}`;
+      const qLabel = `Q${idx+1}`; // exactly as many rows as asked in THIS set
       const rowCells = users.map(u=>{
         const rec = (byQ[q.id]||{})[u];
         if(!rec) return `<td class="ff-cell px-2 py-2 text-gray-300">—</td>`;
@@ -930,17 +937,19 @@ async function refreshFastestHistory(){
       </tr>`;
     }).join('');
 
-    if(bodyEl) bodyEl.innerHTML = bodyHtml;
-    if(msgEl) msgEl.textContent = `Showing results for the current run. ✔ correct, ✖ wrong.`;
+    document.getElementById('ffBody').innerHTML = bodyHtml;
+    document.getElementById('ffMsg').textContent =
+      `Showing ${qList.length} question(s) in this set. ✔ correct, ✖ wrong.`;
   }catch(e){
     console.error('refreshFastestHistory', e);
-    if(msgEl) msgEl.textContent='❌ Failed to load fastest finger history for this run.';
+    const msg=document.getElementById('ffMsg');
+    if(msg) msg.textContent='❌ Failed to load fastest finger history.';
   }finally{
     if(btn){ btn.disabled = false; btn.textContent = 'Refresh'; }
   }
 }
 
-// ====== PHOTO FASTEST (Top 3 overall) ======
+/* ====== Photo Fastest (earliest 3 uploads overall) ====== */
 async function updatePhotoFastest(){
   const els = [
     document.getElementById('photoFastestList'),
@@ -986,7 +995,7 @@ async function updatePhotoFastest(){
   }
 }
 
-// ===================== ADMIN ADJUSTMENTS / REMOVE =====================
+/* ===================== ADMIN ADJUSTMENTS / REMOVE ===================== */
 async function adminAddPoints(){
   const user=document.getElementById('adminSelectUser').value;
   const delta=parseInt(document.getElementById('adminDelta').value||'0',10);
@@ -1024,7 +1033,7 @@ function msg(t,bad=false){
   el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
 }
 
-// ===================== SET BUILDER =====================
+/* ===================== SET BUILDER ===================== */
 function getBlankQuestion(){ return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' }; }
 function createFreshSet(){
   document.getElementById('setName').value = 'New Set ' + new Date().toLocaleTimeString();
@@ -1132,26 +1141,23 @@ async function loadSelectedSet(){
   alert('📥 Set loaded: ' + name);
 }
 
-// ===================== RUN SET (with run_id) =====================
+/* ===================== RUN SET (creates new run_id and resets history view) ===================== */
 async function startSetRun(){
   const { name, items } = collectSetFromUI();
   if(items.length===0){ alert('Add some questions first'); return; }
 
+  // End any lingering questions from previous runs
   await sb.from('questions').update({ ended:true }).eq('ended', false);
 
+  // NEW RUN: assign a fresh runId and immediately reset history to this run only
   gameState.setRunner.running = true;
   gameState.setRunner.queue   = items;
   gameState.setRunner.cursor  = 0;
   gameState.setRunner.runId   = makeRunId();
-  saveState(); // Save the new runId immediately
-  
-  // Clear the history UI for the new run
-  document.getElementById('ffHead').innerHTML = '';
-  document.getElementById('ffBody').innerHTML = '';
-  const ffMsg = document.getElementById('ffMsg');
-  if (ffMsg) ffMsg.textContent = `History for the new set "${name}" will appear here.`;
+  saveState();          // persist so all tabs/viewers scope to this run
 
   document.getElementById('setRunStatus').textContent = `Running "${name}" (${items.length} questions)`;
+  refreshFastestHistory(); // clear/replace table for new set right away
   runNextInQueue(name);
 }
 function cancelSetRun(){
@@ -1172,7 +1178,7 @@ async function runNextInQueue(setName){
   const ends = new Date(start.getTime() + (item.timer||30)*1000 + 500);
 
   if(item.image_url && !isDirectImageUrl(item.image_url)){
-    console.warn('Image URL may not be a direct image:', item.image_url);
+    console.warn('Image URL may not be a direct image. Attempting to display anyway:', item.image_url);
   }
 
   const payload = {
@@ -1185,8 +1191,8 @@ async function runNextInQueue(setName){
     start_time:start.toISOString(),
     ends_at:ends.toISOString(),
     ended:false,
-    run_id: gameState.setRunner.runId,
-    set_name: setName
+    run_id: gameState.setRunner.runId || null,
+    set_name: setName || null
   };
   const { error } = await sb.from('questions').insert(payload);
   if(error){
@@ -1199,32 +1205,27 @@ async function runNextInQueue(setName){
   gameState.setRunner.timerId = setTimeout(()=>runNextInQueue(setName), (item.timer||30)*1000 + 1000);
 }
 
-// ===================== RESET GAME =====================
+/* ===================== RESET GAME ===================== */
 async function resetGame(){
   if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and active questions!")) return;
   try {
     const { error } = await sb.rpc('reset_game_tables');
     if (error) throw error;
 
-    // Also reset the current run tracker
-    gameState.setRunner.runId = null;
-    gameState.setRunner.running = false;
-    clearTimeout(gameState.setRunner.timerId);
-    document.getElementById('setRunStatus').textContent = '';
-    saveState();
-
     document.getElementById('participantScore').textContent = '0';
     gameState.prevRanks = {};
     gameState.currentQuestion = null;
+    gameState.setRunner.runId = null; // also clear run scope
     clearInterval(gameState.questionTimer);
     updateCurrentQuestionStatus();
     await refreshAllLeaderboards();
-    await refreshFastestHistory(); // This will now show the "No active run" message
+    await refreshFastestHistory();
     updatePhotoFastest();
+    saveState();
     alert("✅ Game has been reset!");
   } catch (err) {
     console.error("Reset Error:", err);
-    alert("❌ Reset failed. Ensure you have created the 'reset_game_tables' function in Supabase SQL Editor.");
+    alert("❌ Reset failed. Please ensure you have created the 'reset_game_tables' function in your Supabase SQL Editor as instructed.");
   }
 }
 
@@ -1238,10 +1239,18 @@ async function adminSetPhotoShareAllowed(allowed, minutes=0){
     let expires_at = null;
     if(allowed && minutes > 0){ expires_at = new Date(Date.now() + minutes*60*1000).toISOString(); }
 
-    const { error } = await sb
+    const { data: updData, error: updErr } = await sb
       .from(PHOTO_TOGGLE_TABLE)
-      .upsert({ id: 1, allowed, expires_at }, { onConflict: 'id' });
-    if(error) throw error;
+      .update({ allowed, expires_at })
+      .eq('id', 1)
+      .select('id');
+
+    if (updErr || (updData && updData.length===0)) {
+      const { error: insErr } = await sb
+        .from(PHOTO_TOGGLE_TABLE)
+        .insert({ id: 1, allowed, expires_at });
+      if (insErr) throw insErr;
+    }
 
     gameState.photoShareAllowed = !!allowed;
     gameState.photoShareExpiresAt = expires_at ? new Date(expires_at).getTime() : null;
@@ -1323,9 +1332,7 @@ function renderPhotoCountdown(){
       el.textContent = '⏳ Auto stop reached.';
       clearInterval(photoCountdownTimerId);
       photoCountdownTimerId = null;
-      if (gameState.userType === 'admin') {
-        adminSetPhotoShareAllowed(false, 0);
-      }
+      adminSetPhotoShareAllowed(false, 0);
       return;
     }
     const m = Math.floor(ms/60000);
@@ -1339,11 +1346,12 @@ function renderPhotoCountdown(){
 }
 function scheduleLocalAutoStop(){
   if(gameState.photoShareExpiresAt && Date.now() >= gameState.photoShareExpiresAt){
-    if(gameState.photoShareAllowed && gameState.userType === 'admin'){ adminSetPhotoShareAllowed(false, 0); }
+    if(gameState.photoShareAllowed){ adminSetPhotoShareAllowed(false, 0); }
+    return;
   }
 }
 async function uploadParticipantPhoto(){
-  if(!gameState.photoShareAllowed){ setPhotoMsg('Photo sharing is currently disabled.', true); return; }
+  if(!gameState.photoShareAllowed){ setPhotoMsg('Photo sharing is currently disabled by the admin.', true); return; }
   const input = document.getElementById('photoInput');
   if(!input || !input.files || !input.files[0]){ setPhotoMsg('Please choose a photo first.', true); return; }
   const file = input.files[0];
@@ -1362,7 +1370,9 @@ async function uploadParticipantPhoto(){
   setPhotoMsg('Uploading...');
 
   try{
-    const { error: upErr } = await sb.storage.from(PHOTO_BUCKET).upload(path, file);
+    const { error: upErr } = await sb.storage.from(PHOTO_BUCKET).upload(path, file, {
+      cacheControl: '3600', upsert: false, contentType: file.type
+    });
     if(upErr) throw upErr;
 
     const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
@@ -1400,18 +1410,23 @@ async function refreshPhotoInbox(){
     if(error) throw error;
     gameState.photos = data || [];
     inbox.innerHTML = (data||[]).map(row=>{
-      const when = new Date(row.created_at).toLocaleString();
+      const dt = new Date(row.created_at);
+      const when = dt.toLocaleString();
+      const u = escapeHtml(row.username);
+      const src = escapeHtml(row.url);
+      const pid = row.id;
+      const path = row.path || '';
       return `
-      <div id="photo-card-${row.id}" class="border rounded-xl overflow-hidden shadow-sm">
-        <img src="${escapeHtml(row.url)}" alt="${escapeHtml(row.username)} photo" class="w-full h-48 object-cover"/>
+      <div id="photo-card-${pid}" class="border rounded-xl overflow-hidden shadow-sm">
+        <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
         <div class="p-3 flex items-center justify-between">
           <div>
-            <div class="font-semibold text-gray-800">${escapeHtml(row.username)}</div>
+            <div class="font-semibold text-gray-800">${u}</div>
             <div class="text-xs text-gray-500">${when}</div>
           </div>
           <div class="flex items-center gap-3">
-            <a href="${escapeHtml(row.url)}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
-            <button onclick="adminDeletePhoto('${row.id}', '${encodeURIComponent(row.path||'')}')" class="text-sm text-red-600 hover:text-red-700">🗑️</button>
+            <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
+            <button onclick="adminDeletePhoto('${pid}', '${encodeURIComponent(path)}')" class="text-sm text-red-600 hover:text-red-700">🗑️ Delete</button>
           </div>
         </div>
       </div>`;
@@ -1428,54 +1443,84 @@ async function adminDeletePhoto(id, pathEnc){
   const path = decodeURIComponent(pathEnc || '');
   try{
     if(path){
-      await sb.storage.from(PHOTO_BUCKET).remove([path]);
+      const { error: delErr } = await sb.storage.from(PHOTO_BUCKET).remove([path]);
+      if(delErr) throw delErr;
     }
-    await sb.from(PHOTO_SHARES_TABLE).delete().eq('id', id);
+    const { error: dbErr } = await sb.from(PHOTO_SHARES_TABLE).delete().eq('id', id);
+    if(dbErr) throw dbErr;
 
-    document.getElementById(`photo-card-${id}`)?.remove();
+    const card = document.getElementById(`photo-card-${id}`);
+    if(card) card.remove();
     gameState.photos = (gameState.photos||[]).filter(p=>p.id!==id);
 
     const countEl=document.getElementById('photoCount');
     if(countEl) countEl.textContent = `(${gameState.photos.length})`;
     if(inboxMsg) inboxMsg.textContent = '';
 
-    updatePhotoFastest(); // Update earliest-3 display after deletion
+    updatePhotoFastest();
   }catch(e){
     console.error('adminDeletePhoto', e);
     if(inboxMsg) inboxMsg.textContent = '❌ Delete failed.';
   }
 }
 function initPhotoSharingRealtime(){
-  // This is a simplified realtime listener, you can add more logic
-  sb.channel('photo-updates')
-    .on('postgres_changes', { event:'*', schema:'public', table: PHOTO_TOGGLE_TABLE }, fetchPhotoShareAllowed)
-    .on('postgres_changes', { event:'INSERT', schema:'public', table: PHOTO_SHARES_TABLE }, () => {
-        refreshPhotoInbox();
-        updatePhotoFastest();
+  sb.channel('photo-toggle-rt')
+    .on('postgres_changes', { event:'*', schema:'public', table: PHOTO_TOGGLE_TABLE }, () => { fetchPhotoShareAllowed(); })
+    .subscribe();
+
+  sb.channel('photo-shares-rt')
+    .on('postgres_changes', { event:'INSERT', schema:'public', table: PHOTO_SHARES_TABLE }, (payload) => {
+      const row = payload.new;
+      gameState.photos.unshift(row);
+      const inbox=document.getElementById('photoInbox');
+      const countEl=document.getElementById('photoCount');
+      if(inbox){
+        const dt = new Date(row.created_at);
+        const when = dt.toLocaleString();
+        const u = escapeHtml(row.username);
+        const src = escapeHtml(row.url);
+        const pid = row.id;
+        const path = row.path || '';
+        const card = document.createElement('div');
+        card.id = `photo-card-${pid}`;
+        card.className='border rounded-xl overflow-hidden shadow-sm';
+        card.innerHTML = `
+          <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
+          <div class="p-3 flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-gray-800">${u}</div>
+              <div class="text-xs text-gray-500">${when}</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
+              <button onclick="adminDeletePhoto('${pid}', '${encodeURIComponent(path)}')" class="text-sm text-red-600 hover:text-red-700">🗑️ Delete</button>
+            </div>
+          </div>`;
+        inbox.prepend(card);
+      }
+      if(countEl) countEl.textContent = `(${gameState.photos.length})`;
+      updatePhotoFastest();
     })
     .subscribe();
 }
 
-// ===================== GLOBAL HELPERS =====================
+/* ===================== GLOBAL HELPERS ===================== */
 function openLeaderboardModal(){
   document.getElementById('leaderboardModal').classList.remove('hidden');
-  setTimeout(()=>refreshAllLeaderboards(), 50);
+  setTimeout(()=>refreshAllLeaderboards(), 200);
 }
 function closeLeaderboardModal(){
   document.getElementById('leaderboardModal').classList.add('hidden');
 }
 
-// ===================== BOOT =====================
+/* ===================== BOOT ===================== */
 (function boot(){
   loadState();
   initializeParticipants();
-  if (gameState.userType && gameState.currentUser) {
-      joinPresence(gameState.currentUser);
-      showDashboard(gameState.userType);
-  } else {
-      joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
-  }
+  if (gameState.userType && gameState.currentUser) joinPresence(gameState.currentUser);
+  else joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
 
+  if(gameState.userType){ showDashboard(gameState.userType); }
   loadSavedSetsDropdown();
   populateAdminSelect(true);
   fetchActiveQuestion();
@@ -1484,8 +1529,6 @@ function closeLeaderboardModal(){
   initPhotoSharingRealtime();
   fetchPhotoShareAllowed();
   refreshPhotoInbox();
-  refreshFastestHistory();
-  updatePhotoFastest();
 
   const input = document.getElementById('photoInput');
   if(input){
@@ -1496,7 +1539,11 @@ function closeLeaderboardModal(){
       else { prev.src=''; prev.classList.add('hidden'); setPhotoMsg(''); }
     });
   }
-  
+
+  // On load, history is scoped to the current/last run only.
+  refreshFastestHistory();
+  updatePhotoFastest();
+
   window.addEventListener('beforeunload', saveState);
 })();
 </script>
