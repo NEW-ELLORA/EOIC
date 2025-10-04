@@ -269,6 +269,15 @@
         <img id="photoPreview" class="hidden w-40 h-40 object-cover rounded-xl border" alt="Preview"/>
         <div id="photoShareMsg" class="text-sm text-gray-600"></div>
       </div>
+
+      <!-- ⚡ Fastest Finger (live) within the photo card -->
+      <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Live)</h3>
+          <button class="text-xs px-2 py-1 bg-amber-200 rounded hover:bg-amber-300" onclick="updatePhotoFastest()">Refresh</button>
+        </div>
+        <div id="photoFastestList" class="mt-3 text-amber-900 text-sm">Waiting for answers...</div>
+      </div>
     </div>
     <!-- ==== /PHOTO SHARING ==== -->
 
@@ -389,6 +398,7 @@ async function softRefresh(){
       refreshAllLeaderboards(),
       refreshFastestHistory(),
       updateFastestFinger(),
+      updatePhotoFastest(),
       fetchPhotoShareAllowed(),
       (document.getElementById('adminDashboard')?.classList.contains('hidden') ? Promise.resolve() : refreshPhotoInbox())
     ]);
@@ -418,6 +428,7 @@ function wireRealtime(){
           refreshAllLeaderboards();
           updateFastestFinger();
           refreshFastestHistory();
+          updatePhotoFastest();
           break;
         case 'questions': {
           const q = payload.new;
@@ -486,6 +497,7 @@ function login(type){
   fetchPhotoShareAllowed();
   refreshPhotoInbox();
   refreshFastestHistory();
+  updatePhotoFastest();
   wireRealtime();
 }
 function showDashboard(type){
@@ -539,6 +551,7 @@ function setCurrentQuestion(q){
   startOrSyncTimer();
   updateCurrentQuestionStatus();
   updateFastestFinger();
+  updatePhotoFastest();
 }
 function clearQuestionUI(){
   gameState.currentQuestion=null;
@@ -549,6 +562,7 @@ function clearQuestionUI(){
   updateCurrentQuestionStatus();
   const ff=document.getElementById('fastestFinger');
   if(ff) ff.innerHTML='<div class="text-gray-400">Waiting for answers...</div>';
+  updatePhotoFastest();
 }
 
 // ===================== PARTICIPANT VIEW =====================
@@ -604,6 +618,7 @@ async function submitAnswer(answer){
     refreshAllLeaderboards();
     updateFastestFinger();
     refreshFastestHistory();
+    updatePhotoFastest();
   }, 150);
 }
 function disableAndHighlight(answer, correct){
@@ -650,6 +665,7 @@ async function endQuestion(){
   updateFastestFinger();
   refreshAllLeaderboards();
   refreshFastestHistory();
+  updatePhotoFastest();
   saveState();
 }
 
@@ -831,23 +847,39 @@ function updateActiveParticipants(){
   if(el) el.textContent=`${count} warriors online`;
 }
 
-// ====== FASTEST FINGER HISTORY ======
+// ====== FASTEST FINGER HISTORY (scoped to current run) ======
 async function refreshFastestHistory(){
   const btn = document.getElementById('ffRefreshBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Loading...'; }
 
   try{
-    const { data: qList, error: qErr } = await sb.from('questions')
-      .select('id,text,start_time')
-      .order('start_time', { ascending: false })
-      .limit(15);
+    let runId = gameState.setRunner?.runId || null;
+    if(!runId){
+      const { data: lastQ } = await sb.from('questions')
+        .select('run_id,start_time')
+        .order('start_time', { ascending:false })
+        .limit(1);
+      if(lastQ && lastQ.length && lastQ[0].run_id) runId = lastQ[0].run_id;
+    }
 
-    if(qErr) throw qErr;
-
-    if(!qList || !qList.length){
+    if (!runId) {
       document.getElementById('ffHead').innerHTML='';
       document.getElementById('ffBody').innerHTML='';
-      document.getElementById('ffMsg').textContent='No questions have been asked yet.';
+      document.getElementById('ffMsg').textContent='No questions for this run yet.';
+      return;
+    }
+    
+    const { data: qList, error: qErr } = await sb.from('questions')
+      .select('id,text,start_time')
+      .eq('run_id', runId)
+      .order('start_time', { ascending:false });
+
+    if(qErr) throw qErr;
+    
+    if(!qList.length){
+      document.getElementById('ffHead').innerHTML='';
+      document.getElementById('ffBody').innerHTML='';
+      document.getElementById('ffMsg').textContent='No questions for this run yet.';
       return;
     }
 
@@ -903,6 +935,67 @@ async function refreshFastestHistory(){
     if(msg) msg.textContent='❌ Failed to load fastest finger history.';
   }finally{
     if(btn){ btn.disabled = false; btn.textContent = 'Refresh'; }
+  }
+}
+
+// ====== MINI FASTEST LIST inside Photo Card ======
+async function updatePhotoFastest(){
+  const el = document.getElementById('photoFastestList');
+  if(!el) return;
+
+  try{
+    let q = gameState.currentQuestion;
+
+    if(!q){
+      let runId = gameState.setRunner?.runId || null;
+      if(!runId){
+        const { data: lastQ } = await sb.from('questions')
+          .select('run_id,start_time')
+          .order('start_time', { ascending:false })
+          .limit(1);
+        if(lastQ && lastQ.length && lastQ[0].run_id) runId = lastQ[0].run_id;
+      }
+      
+      if(runId){
+        const { data: qd } = await sb.from('questions')
+          .select('id,text')
+          .eq('run_id', runId)
+          .order('start_time', { ascending:false })
+          .limit(1);
+        if(qd && qd.length) q = { id: qd[0].id };
+      }
+    }
+
+    if(!q){ el.textContent = 'No questions yet for this run.'; return; }
+
+    const { data: answers } = await sb.from('answers')
+      .select('username,time_ms,is_correct')
+      .eq('question_id', q.id);
+
+    if(!answers || !answers.length){ el.textContent = 'No answers yet...'; return; }
+
+    const rows = answers
+      .map(a=>({ ...a, s: (a.time_ms/1000).toFixed(1) }))
+      .sort((a,b)=>a.time_ms-b.time_ms);
+
+    const html = rows.map((r,i)=>{
+      const place = i===0?'🥇':i===1?'🥈':i===2?'🥉':'🏅';
+      const avatar = gameState.participants[r.username]?.avatar || '⚡';
+      const mark = r.is_correct ? '✔' : '✖';
+      const clr = r.is_correct ? 'text-green-700' : 'text-red-700';
+      return `<div class="flex items-center justify-between py-1">
+        <div class="flex items-center gap-2">
+          <span>${place}</span>
+          <span class="text-xl">${avatar}</span>
+          <span class="font-semibold">${r.username}</span>
+        </div>
+        <div class="font-bold ${clr}">${r.s}s ${mark}</div>
+      </div>`;
+    }).join('');
+    el.innerHTML = html;
+  }catch(err){
+    console.error('updatePhotoFastest', err);
+    el.textContent = '❌ Could not load fastest data.';
   }
 }
 
@@ -1126,6 +1219,7 @@ async function resetGame(){
     updateCurrentQuestionStatus();
     await refreshAllLeaderboards();
     await refreshFastestHistory();
+    updatePhotoFastest();
     alert("✅ Game has been reset!");
   } catch (err) {
     console.error("Reset Error:", err);
@@ -1443,6 +1537,7 @@ function closeLeaderboardModal(){
   }
 
   refreshFastestHistory();
+  updatePhotoFastest();
 
   window.addEventListener('beforeunload', saveState);
 })();
