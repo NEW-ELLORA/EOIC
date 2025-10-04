@@ -20,6 +20,10 @@
     .ff-table th, .ff-table td { white-space: nowrap; }
     .ff-cell { min-width: 64px; text-align: center; }
     .ff-badge { padding: 0.15rem 0.4rem; border-radius: 9999px; font-weight: 700; font-size: 0.75rem; display:inline-block; }
+
+    /* Smooth slow spin without heavy motion (NEW) */
+    @keyframes spin-slow { to { transform: rotate(360deg); } }
+    .animate-spin-slow { animation: spin-slow 2s linear infinite; }
   </style>
 </head>
 <body class="warrior-bg ancient-pattern min-h-screen">
@@ -195,7 +199,18 @@
 
         <div class="text-sm text-gray-600 mt-1" id="photoToggleMsg"></div>
         <div class="text-sm text-amber-700 mt-1" id="photoCountdown"></div>
+
+        <!-- ✅ NEW: Admin-side Fastest Finger (Live) list -->
+        <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Live)</h3>
+            <button class="text-xs px-2 py-1 bg-amber-200 rounded hover:bg-amber-300" onclick="updatePhotoFastest()">Refresh</button>
+          </div>
+          <div id="photoFastestListAdmin" class="mt-3 text-amber-900 text-sm">Waiting for answers...</div>
+        </div>
+        <!-- /NEW -->
       </div>
+
       <!-- Inbox -->
       <div class="bg-white rounded-2xl shadow-xl p-6 lg:col-span-2">
         <div class="flex items-center justify-between mb-4">
@@ -284,6 +299,33 @@
     <div class="mt-6 bg-white rounded-2xl shadow-xl p-6">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">🏆 Warrior Rankings</h2>
       <div id="participantLeaderboard" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Post-login Loader Overlay (NEW) -->
+<div id="loadingOverlay" class="fixed inset-0 z-[1000] hidden grid place-items-center bg-black/70 backdrop-blur-sm">
+  <div class="flex flex-col items-center gap-4">
+    <!-- Crest spinner (SVG) -->
+    <svg id="loadingCrest" class="w-20 h-20 animate-spin-slow" viewBox="0 0 100 100" fill="none">
+      <defs>
+        <linearGradient id="molten" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#F59E0B"/>
+          <stop offset="50%" stop-color="#D97706"/>
+          <stop offset="100%" stop-color="#B45309"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="42" stroke="url(#molten)" stroke-width="6" opacity="0.5"/>
+      <path d="M50 18 L65 38 L85 42 L70 58 L73 80 L50 70 L27 80 L30 58 L15 42 L35 38 Z"
+            fill="url(#molten)" opacity="0.9"/>
+    </svg>
+
+    <!-- Copy that changes by role -->
+    <div id="loadingCopy" class="text-amber-200 text-lg font-semibold">Sharpening Blades…</div>
+
+    <!-- Progress bar -->
+    <div class="w-64 h-2 bg-white/20 rounded-full overflow-hidden">
+      <div id="loadingBar" class="h-full w-0 bg-amber-400 transition-[width] duration-300 ease-out"></div>
     </div>
   </div>
 </div>
@@ -463,17 +505,55 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { softRefresh(); bumpHeartbeat(); }});
 window.addEventListener('focus', () => { softRefresh(); bumpHeartbeat(); });
 
+/* ========= Loader helpers (NEW) ========= */
+function showLoader(roleText){
+  const overlay = document.getElementById('loadingOverlay');
+  const copy = document.getElementById('loadingCopy');
+  const bar = document.getElementById('loadingBar');
+  if(copy) copy.textContent = roleText || 'Loading…';
+  if(bar){ bar.style.width = '0%'; }
+  overlay.classList.remove('hidden');
+
+  // fake-progress to 85% while real work happens
+  let p = 0;
+  overlay.__progTimer = setInterval(()=> {
+    p = Math.min(85, p + 5);
+    if(bar) bar.style.width = p + '%';
+  }, 180);
+}
+function hideLoader(){
+  const overlay = document.getElementById('loadingOverlay');
+  const bar = document.getElementById('loadingBar');
+  if(overlay.__progTimer) { clearInterval(overlay.__progTimer); }
+  // complete to 100% then fade out
+  if(bar) bar.style.width = '100%';
+  setTimeout(()=> overlay.classList.add('hidden'), 200);
+}
 // ===================== LOGIN =====================
-function login(type){
+async function login(type){
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value.trim();
   if(!username||!password){ alert('Please enter both username and password!'); return; }
+
+  // prevent duplicate warrior username login using presence roster
+  if(type==='participant'){
+    if (presenceRoster.has(username)) {
+      alert('This warrior is already logged in on another device/browser. Please try a different username or log out there first.');
+      return;
+    }
+  }
+
   let ok=false;
   if(type==='admin'){ ok = (username===credentials.admin.username && password===credentials.admin.password); }
   else { ok = credentials.participants[username]===password; }
   if(!ok){ alert('Invalid credentials!'); return; }
+
+  // Start loader (role-specific copy)
+  showLoader(type==='admin' ? 'Forging Commands…' : 'Sharpening Blades…');
+
   gameState.currentUser=username;
   gameState.userType=type;
+
   if(type==='participant'){
     if(!gameState.participants[username]) gameState.participants[username]={name:username,avatar:'⚔️',online:true};
     gameState.participants[username].online=true;
@@ -482,17 +562,25 @@ function login(type){
   }
   saveState();
   joinPresence(username);
-  showDashboard(type);
+  showDashboard(type);                // dashboard renders behind the overlay
   updateActiveParticipants();
-  fetchActiveQuestion();
-  refreshAllLeaderboards();
-  populateAdminSelect(true);
-  initPhotoSharingRealtime();
-  fetchPhotoShareAllowed();
-  refreshPhotoInbox();
-  refreshFastestHistory();
-  updatePhotoFastest();
-  wireRealtime(); // start unified realtime
+
+  // Kick off initial data loads while the loader shows
+  try{
+    await Promise.allSettled([
+      fetchActiveQuestion(),
+      refreshAllLeaderboards(),
+      (async()=>populateAdminSelect?.(true))(),
+      (async()=>initPhotoSharingRealtime?.())(),
+      fetchPhotoShareAllowed(),
+      refreshPhotoInbox(),
+      refreshFastestHistory(),
+      updatePhotoFastest()
+    ]);
+    wireRealtime();
+  } finally {
+    hideLoader(); // overlay disappears once boot tasks settle
+  }
 }
 function showDashboard(type){
   document.getElementById('loginScreen').classList.add('hidden');
@@ -671,30 +759,77 @@ function pointsFromAnswer(record, qMap){
 }
 async function computeLeaderboard(){
   const users = Object.keys(credentials.participants);
+
+  // Pull answers with time_ms so we can compute tiebreakers
   const [{ data: answers }, { data: qs }] = await Promise.all([
-    sb.from('answers').select('username,question_id,is_correct'),
+    sb.from('answers').select('username,question_id,is_correct,time_ms'),
     sb.from('questions').select('id,points')
   ]);
+
   const qMap = Object.fromEntries((qs||[]).map(q=>[q.id, q]));
-  const totals = {};
+
+  // Totals and tie-times
+  const totals = {};         // username -> points
+  const bestTimes = {};      // username -> sum of best (fastest) correct times across questions
+
+  // For each user/question, keep the minimum correct time to avoid double-counting
+  const perUserPerQBest = {}; // username -> { qid -> minTimeMs }
+
   (answers||[]).forEach(r=>{
+    // points
     if(!totals[r.username]) totals[r.username]=0;
     totals[r.username]+=pointsFromAnswer(r, qMap);
+
+    // tie time: only count correct answers
+    if (r.is_correct) {
+      if (!perUserPerQBest[r.username]) perUserPerQBest[r.username] = {};
+      const prev = perUserPerQBest[r.username][r.question_id];
+      const t = Math.max(0, Number(r.time_ms||0));
+      if (prev === undefined || t < prev) perUserPerQBest[r.username][r.question_id] = t;
+    }
   });
+
+  // Sum best times per user
+  Object.keys(perUserPerQBest).forEach(u=>{
+    bestTimes[u] = Object.values(perUserPerQBest[u]).reduce((a,b)=>a+b,0);
+  });
+
+  // Admin adjustments
   const { data: adj } = await sb.from('score_adjustments').select('username,delta');
   (adj||[]).forEach(a=>{
     if(!totals[a.username]) totals[a.username]=0;
     totals[a.username]+=(a.delta||0);
   });
+
+  // Removed participants
   const { data: flags } = await sb.from('participant_flags').select('username,removed');
   const removed = new Set((flags||[]).filter(f=>f.removed).map(f=>f.username));
-  users.forEach(u=>{ if(!totals[u]) totals[u]=0; });
+
+  // Ensure all users exist
+  users.forEach(u=>{ if(!totals[u]) totals[u]=0; if(!bestTimes[u]) bestTimes[u]=Number.POSITIVE_INFINITY; });
+
+  // Build rows with tieBreak field
   const rows = Object.entries(totals)
     .filter(([u,_])=>!removed.has(u))
-    .map(([u,score])=>({ name:u, score, avatar: gameState.participants[u]?.avatar||'⚔️', online: presenceRoster.has(u) }))
-    .sort((a,b)=>b.score-a.score);
+    .map(([u,score])=>({
+      name:u,
+      score,
+      tieTime: bestTimes[u], // smaller is better
+      avatar: gameState.participants[u]?.avatar||'⚔️',
+      online: presenceRoster.has(u)
+    }))
+    // Sort: score desc, tieTime asc, name asc
+    .sort((a,b)=>{
+      if (b.score !== a.score) return b.score - a.score;
+      const at = isFinite(a.tieTime) ? a.tieTime : Number.POSITIVE_INFINITY;
+      const bt = isFinite(b.tieTime) ? b.tieTime : Number.POSITIVE_INFINITY;
+      if (at !== bt) return at - bt;
+      return a.name.localeCompare(b.name);
+    });
+
   return rows;
 }
+
 let chartInstance = null;
 async function refreshAllLeaderboards(){
   const rows = await computeLeaderboard();
@@ -892,10 +1027,11 @@ async function refreshFastestHistory(){
   }
 }
 
-// ====== MINI FASTEST LIST inside Photo Card ======
+/* ====== MINI FASTEST LIST inside Photo Card (now also renders in Admin) ====== */
 async function updatePhotoFastest(){
-  const el = document.getElementById('photoFastestList');
-  if(!el) return;
+  const el1 = document.getElementById('photoFastestList');        // participant
+  const el2 = document.getElementById('photoFastestListAdmin');   // admin
+  if(!el1 && !el2) return;
 
   try{
     let q = gameState.currentQuestion;
@@ -927,13 +1063,15 @@ async function updatePhotoFastest(){
       if(qd && qd.length) q = { id: qd[0].id, text: qd[0].text };
     }
 
-    if(!q){ el.textContent = 'No questions yet.'; return; }
+    const targetEls = [el1, el2].filter(Boolean);
+
+    if(!q){ targetEls.forEach(e=>e.textContent='No questions yet.'); return; }
 
     const { data: answers } = await sb.from('answers')
       .select('username,time_ms,is_correct')
       .eq('question_id', q.id);
 
-    if(!answers || !answers.length){ el.textContent = 'No answers yet...'; return; }
+    if(!answers || !answers.length){ targetEls.forEach(e=>e.textContent='No answers yet...'); return; }
 
     const rows = answers
       .map(a=>({ ...a, s: (a.time_ms/1000).toFixed(1) }))
@@ -953,511 +1091,12 @@ async function updatePhotoFastest(){
         <div class="font-bold ${clr}">${r.s}s ${mark}</div>
       </div>`;
     }).join('');
-    el.innerHTML = html;
+
+    targetEls.forEach(e=>e.innerHTML = html);
   }catch(err){
     console.error('updatePhotoFastest', err);
-    el.textContent = '❌ Could not load fastest data.';
+    [el1, el2].filter(Boolean).forEach(e=>e.textContent='❌ Could not load fastest data.');
   }
-}
-
-// ===================== ADMIN ADJUSTMENTS / REMOVE =====================
-async function adminAddPoints(){
-  const user=document.getElementById('adminSelectUser').value;
-  const delta=parseInt(document.getElementById('adminDelta').value||'0',10);
-  const reason=document.getElementById('adminReason').value.trim()||'Manual adjustment';
-  if(!user || !delta){ msg('Choose user & non-zero points'); return; }
-  const { error } = await sb.from('score_adjustments').insert({ username:user, delta, reason });
-  if(error){ msg('Failed: '+error.message,true); return; }
-  msg(`Adjusted ${user} by ${delta} (${reason})`);
-  document.getElementById('adminDelta').value='';
-  document.getElementById('adminReason').value='';
-  refreshAllLeaderboards();
-}
-async function adminRemoveParticipant(removed){
-  const user=document.getElementById('adminSelectUser').value;
-  if(!user){ msg('Pick a user first'); return; }
-  const { error } = await sb.from('participant_flags').upsert({ username:user, removed }, { onConflict:'username' });
-  if(error){ msg('Failed: '+error.message,true); return; }
-  msg(`${removed?'Removed':'Restored'} ${user}.`);
-  refreshAllLeaderboards();
-}
-function populateAdminSelect(preserve=true){
-  const sel=document.getElementById('adminSelectUser'); if(!sel) return;
-  const users=Object.keys(credentials.participants);
-  const prev=preserve?sel.value:null;
-  const frag=document.createDocumentFragment();
-  users.forEach(u=>{
-    const opt=document.createElement('option'); opt.value=u; opt.textContent=u; frag.appendChild(opt);
-  });
-  sel.innerHTML=''; sel.appendChild(frag);
-  if(prev && users.includes(prev)) sel.value=prev;
-}
-function msg(t,bad=false){
-  const el=document.getElementById('adminActionMsg'); if(!el) return;
-  el.textContent=t;
-  el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
-}
-
-// ===================== SET BUILDER =====================
-function getBlankQuestion(){ return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' }; }
-function createFreshSet(){
-  document.getElementById('setName').value = 'New Set ' + new Date().toLocaleTimeString();
-  const wrap=document.getElementById('setQuestions'); wrap.innerHTML='';
-  for(let i=0;i<7;i++) addQuestionRow(getBlankQuestion());
-}
-function addQuestionRow(data){
-  const wrap=document.getElementById('setQuestions');
-  const idx = wrap.children.length+1;
-  const q = data || getBlankQuestion();
-  const div=document.createElement('div');
-  div.className='qrow p-4 rounded-xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50';
-  div.innerHTML=`
-    <div class="flex items-center justify-between mb-2">
-      <div class="font-bold text-amber-900">Q${idx}</div>
-      <button class="text-sm text-red-600" onclick="this.closest('.qrow').remove(); renumberQuestions();">Remove</button>
-    </div>
-    <div class="grid md:grid-cols-2 gap-2">
-      <input class="q-text px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Question text" value="${escapeHtml(q.text)}"/>
-      <input class="q-img px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Image URL (optional)" value="${escapeHtml(q.image_url)}"/>
-      <input class="q-a px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option A" value="${escapeHtml(q.A)}"/>
-      <input class="q-b px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option B" value="${escapeHtml(q.B)}"/>
-      <input class="q-c px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option C" value="${escapeHtml(q.C)}"/>
-      <input class="q-d px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option D" value="${escapeHtml(q.D)}"/>
-      <select class="q-correct px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500">
-        <option value="">Correct?</option><option ${q.correct==='A'?'selected':''}>A</option><option ${q.correct==='B'?'selected':''}>B</option><option ${q.correct==='C'?'selected':''}>C</option><option ${q.correct==='D'?'selected':''}>D</option>
-      </select>
-      <input type="number" min="5" max="180" class="q-timer px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Timer (sec)" value="${q.timer}"/>
-      <input type="number" min="10" max="1000" class="q-points px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Points" value="${q.points}"/>
-    </div>
-  `;
-  wrap.appendChild(div);
-}
-function renumberQuestions(){
-  [...document.querySelectorAll('#setQuestions .qrow')].forEach((row,i)=>{ row.querySelector('.font-bold').textContent = 'Q'+(i+1); });
-}
-function collectSetFromUI(){
-  const name=document.getElementById('setName').value.trim() || 'Untitled Set';
-  const rows=[...document.querySelectorAll('#setQuestions .qrow')];
-  const items=rows.map(r=>({
-    text:r.querySelector('.q-text').value.trim(),
-    image_url:r.querySelector('.q-img').value.trim(),
-    A:r.querySelector('.q-a').value.trim(), B:r.querySelector('.q-b').value.trim(),
-    C:r.querySelector('.q-c').value.trim(), D:r.querySelector('.q-d').value.trim(),
-    correct:r.querySelector('.q-correct').value,
-    timer:parseInt(r.querySelector('.q-timer').value)||30,
-    points:parseInt(r.querySelector('.q-points').value)||100
-  })).filter(x=>x.text && x.correct && x.A && x.B && x.C && x.D);
-  return { name, items };
-}
-async function saveCurrentSet(){
-  const set=collectSetFromUI();
-  let savedToDb = false;
-  try{
-    const { error } = await sb.from(SETS_TABLE).upsert({ name:set.name, items:set.items }).select('name').single();
-    if(!error) savedToDb = true;
-  }catch(e){}
-  if(!savedToDb){
-    const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
-    const idx=list.findIndex(s=>s.name===set.name);
-    if(idx>=0) list[idx]=set; else list.push(set);
-    localStorage.setItem(SETS_KEY, JSON.stringify(list));
-  }
-  localStorage.setItem(LAST_SET_KEY, set.name);
-  await loadSavedSetsDropdown(set.name);
-  alert('✅ Set saved' + (savedToDb?' to cloud.':' locally.'));
-}
-async function loadSavedSetsDropdown(selectedName){
-  let names = [];
-  try{
-    const { data, error } = await sb.from(SETS_TABLE).select('name').order('updated_at', { ascending:false });
-    if(!error && data){ names = data.map(x=>x.name); }
-  }catch(e){}
-  if(!names.length){
-    const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
-    names = list.map(s=>s.name);
-  }
-  const sel=document.getElementById('savedSets');
-  sel.innerHTML = names.map(n=>`<option value="${n}">${n}</option>`).join('');
-  const last = selectedName || localStorage.getItem(LAST_SET_KEY);
-  if(last && names.includes(last)) sel.value=last;
-}
-async function loadSelectedSet(){
-  const sel=document.getElementById('savedSets');
-  const name=sel.value;
-  let set = null;
-  try{
-    const { data, error } = await sb.from(SETS_TABLE).select('items').eq('name', name).maybeSingle();
-    if(!error && data){ set = { name, items: data.items }; }
-  }catch(e){}
-  if(!set){
-    const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
-    set = list.find(s=>s.name===name);
-  }
-  if(!set){ alert('No set found'); return; }
-
-  localStorage.setItem(LAST_SET_KEY, name);
-  document.getElementById('setName').value=set.name;
-  const wrap=document.getElementById('setQuestions');
-  wrap.innerHTML='';
-  set.items.forEach(item=>addQuestionRow(item));
-  const bad = set.items.filter(i=>i.image_url && !isDirectImageUrl(i.image_url)).length;
-  if(bad) document.getElementById('imageTip').innerHTML = `⚠️ ${bad} image link(s) look like pages, not images. Paste a direct image URL ending in .png/.jpg/.jpeg/.gif/.webp.`;
-  else document.getElementById('imageTip').textContent = 'Tip: Paste a direct image URL ending in .png, .jpg, .jpeg, .gif, or .webp.';
-  alert('📥 Set loaded: ' + name);
-}
-
-// ===================== RUN SET (with run_id) =====================
-async function startSetRun(){
-  const { name, items } = collectSetFromUI();
-  if(items.length===0){ alert('Add some questions first'); return; }
-
-  await sb.from('questions').update({ ended:true }).eq('ended', false);
-
-  gameState.setRunner.running = true;
-  gameState.setRunner.queue   = items;
-  gameState.setRunner.cursor  = 0;
-  gameState.setRunner.runId   = makeRunId();
-
-  document.getElementById('setRunStatus').textContent = `Running "${name}" (${items.length} questions)`;
-  runNextInQueue(name);
-}
-function cancelSetRun(){
-  gameState.setRunner.running=false;
-  clearTimeout(gameState.setRunner.timerId);
-  document.getElementById('setRunStatus').textContent = 'Stopped.';
-}
-async function runNextInQueue(setName){
-  if(!gameState.setRunner.running) return;
-  const i=gameState.setRunner.cursor;
-  if(i >= gameState.setRunner.queue.length){
-    gameState.setRunner.running=false;
-    document.getElementById('setRunStatus').textContent='Set complete 🎉';
-    return;
-  }
-  const item = gameState.setRunner.queue[i];
-  const start = new Date();
-  const ends = new Date(start.getTime() + (item.timer||30)*1000 + 500);
-
-  if(item.image_url && !isDirectImageUrl(item.image_url)){
-    console.warn('Image URL may not be a direct image. Attempting to display anyway:', item.image_url);
-  }
-
-  const payload = {
-    text:item.text,
-    options:{ A:item.A, B:item.B, C:item.C, D:item.D },
-    correct:item.correct,
-    timer:item.timer||30,
-    points:item.points||100,
-    image_url:item.image_url||null,
-    start_time:start.toISOString(),
-    ends_at:ends.toISOString(),
-    ended:false,
-    run_id: gameState.setRunner.runId || null,
-    set_name: setName || null
-  };
-  const { error } = await sb.from('questions').insert(payload);
-  if(error){
-    console.error('Insert question failed:', error);
-    cancelSetRun();
-    alert('Insert question failed. Check schema & policies.');
-    return;
-  }
-  gameState.setRunner.cursor++;
-  gameState.setRunner.timerId = setTimeout(()=>runNextInQueue(setName), (item.timer||30)*1000 + 1000);
-}
-
-// ===================== RESET GAME =====================
-async function resetGame(){
-  if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and active questions!")) return;
-  try {
-    const { error } = await sb.rpc('reset_game_tables');
-    if (error) throw error;
-
-    document.getElementById('participantScore').textContent = '0';
-    gameState.prevRanks = {};
-    gameState.currentQuestion = null;
-    clearInterval(gameState.questionTimer);
-    updateCurrentQuestionStatus();
-    await refreshAllLeaderboards();
-    await refreshFastestHistory();
-    updatePhotoFastest();
-    alert("✅ Game has been reset!");
-  } catch (err) {
-    console.error("Reset Error:", err);
-    alert("❌ Reset failed. Please ensure you have created the 'reset_game_tables' function in your Supabase SQL Editor as instructed.");
-  }
-}
-
-/* ===================== PHOTO SHARING ===================== */
-async function onAdminTogglePhotoShare(checked){
-  const minutes = parseInt(document.getElementById('photoDuration').value || '0', 10);
-  await adminSetPhotoShareAllowed(checked, minutes);
-}
-async function adminSetPhotoShareAllowed(allowed, minutes=0){
-  try{
-    let expires_at = null;
-    if(allowed && minutes > 0){ expires_at = new Date(Date.now() + minutes*60*1000).toISOString(); }
-
-    const { data: updData, error: updErr } = await sb
-      .from(PHOTO_TOGGLE_TABLE)
-      .update({ allowed, expires_at })
-      .eq('id', 1)
-      .select('id');
-
-    if (updErr || (updData && updData.length===0)) {
-      const { error: insErr } = await sb
-        .from(PHOTO_TOGGLE_TABLE)
-        .insert({ id: 1, allowed, expires_at });
-      if (insErr) throw insErr;
-    }
-
-    gameState.photoShareAllowed = !!allowed;
-    gameState.photoShareExpiresAt = expires_at ? new Date(expires_at).getTime() : null;
-
-    applyPhotoShareVisibility();
-    renderPhotoCountdown();
-    const msgEl = document.getElementById('photoToggleMsg');
-    if(msgEl) msgEl.textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
-
-    scheduleLocalAutoStop();
-    saveState();
-  }catch(e){
-    console.error('toggle failed', e);
-    const msg = document.getElementById('photoToggleMsg');
-    if (msg) msg.textContent = '❌ Failed to update toggle.';
-    const cb=document.getElementById('allowPhotoShare');
-    if(cb) cb.checked = !!gameState.photoShareAllowed;
-  }
-}
-async function fetchPhotoShareAllowed(){
-  try{
-    const { data, error } = await sb
-      .from(PHOTO_TOGGLE_TABLE)
-      .select('allowed, expires_at')
-      .eq('id',1)
-      .maybeSingle();
-    if(error) throw error;
-
-    const now = Date.now();
-    const expiresAtMs = data?.expires_at ? new Date(data.expires_at).getTime() : null;
-    const effectiveAllowed = !!data?.allowed && (!expiresAtMs || expiresAtMs > now);
-
-    gameState.photoShareAllowed = effectiveAllowed;
-    gameState.photoShareExpiresAt = expiresAtMs;
-
-    const cb = document.getElementById('allowPhotoShare');
-    if(cb) cb.checked = effectiveAllowed;
-
-    applyPhotoShareVisibility();
-    renderPhotoCountdown();
-    const tmsg=document.getElementById('photoToggleMsg');
-    if(tmsg) tmsg.textContent = effectiveAllowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
-
-    scheduleLocalAutoStop();
-    saveState();
-  }catch(e){
-    console.warn('fetchPhotoShareAllowed', e);
-    const cb=document.getElementById('allowPhotoShare');
-    if(cb) cb.checked = !!gameState.photoShareAllowed;
-    applyPhotoShareVisibility();
-    renderPhotoCountdown();
-  }
-}
-function applyPhotoShareVisibility(){
-  const card=document.getElementById('photoShareCard');
-  if(!card) return;
-  const now = Date.now();
-  const allowed = gameState.photoShareAllowed && (!gameState.photoShareExpiresAt || gameState.photoShareExpiresAt > now);
-  const show = (gameState.userType==='participant') && allowed;
-  card.classList.toggle('hidden', !show);
-}
-function renderPhotoCountdown(){
-  const el = document.getElementById('photoCountdown');
-  const row = document.getElementById('photoDurationRow');
-  if(!el) return;
-
-  if(row) row.classList.toggle('hidden', !!gameState.photoShareAllowed);
-
-  if(!gameState.photoShareAllowed || !gameState.photoShareExpiresAt){
-    el.textContent = '';
-    clearInterval(photoCountdownTimerId);
-    photoCountdownTimerId = null;
-    return;
-  }
-
-  function tick(){
-    const ms = gameState.photoShareExpiresAt - Date.now();
-    if(ms <= 0){
-      el.textContent = '⏳ Auto stop reached.';
-      clearInterval(photoCountdownTimerId);
-      photoCountdownTimerId = null;
-      adminSetPhotoShareAllowed(false, 0);
-      return;
-    }
-    const m = Math.floor(ms/60000);
-    const s = Math.floor((ms%60000)/1000);
-    el.textContent = `⏳ Auto stop in ${m}:${String(s).padStart(2,'0')}`;
-  }
-
-  tick();
-  clearInterval(photoCountdownTimerId);
-  photoCountdownTimerId = setInterval(tick, 1000);
-}
-function scheduleLocalAutoStop(){
-  if(gameState.photoShareExpiresAt && Date.now() >= gameState.photoShareExpiresAt){
-    if(gameState.photoShareAllowed){ adminSetPhotoShareAllowed(false, 0); }
-    return;
-  }
-}
-async function uploadParticipantPhoto(){
-  if(!gameState.photoShareAllowed){ setPhotoMsg('Photo sharing is currently disabled by the admin.', true); return; }
-  const input = document.getElementById('photoInput');
-  if(!input || !input.files || !input.files[0]){ setPhotoMsg('Please choose a photo first.', true); return; }
-  const file = input.files[0];
-  if(!file.type.startsWith('image/')){ setPhotoMsg('File must be an image.', true); return; }
-  if(file.size > 25*1024*1024){ setPhotoMsg('Max size is 25MB.', true); return; }
-
-  const preview = document.getElementById('photoPreview');
-  preview.src = URL.createObjectURL(file);
-  preview.classList.remove('hidden');
-
-  const uname = gameState.currentUser || 'anonymous';
-  const ts = new Date().toISOString().replace(/[:.]/g,'-');
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  const path = `photos/${encodeURIComponent(uname)}/${ts}.${ext}`;
-
-  setPhotoMsg('Uploading...');
-
-  try{
-    const { error: upErr } = await sb.storage.from(PHOTO_BUCKET).upload(path, file, {
-      cacheControl: '3600', upsert: false, contentType: file.type
-    });
-    if(upErr) throw upErr;
-
-    const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
-    const publicUrl = pub?.publicUrl;
-    if(!publicUrl) throw new Error('Could not get public URL');
-
-    const { error: insErr } = await sb.from(PHOTO_SHARES_TABLE).insert({
-      username: uname, url: publicUrl, path: path
-    });
-    if(insErr) throw insErr;
-
-    setPhotoMsg('✅ Sent! The battle master can see your photo.');
-    input.value = '';
-  }catch(e){
-    console.error('uploadParticipantPhoto', e);
-    setPhotoMsg('❌ Upload failed. Please try again.', true);
-  }
-}
-function setPhotoMsg(t,bad=false){
-  const el=document.getElementById('photoShareMsg');
-  if(!el) return;
-  el.textContent=t;
-  el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
-}
-async function refreshPhotoInbox(){
-  const inbox=document.getElementById('photoInbox');
-  const countEl=document.getElementById('photoCount');
-  const msg=document.getElementById('photoInboxMsg');
-  if(!inbox) return;
-  try{
-    const { data, error } = await sb.from(PHOTO_SHARES_TABLE)
-      .select('id,username,url,path,created_at')
-      .order('created_at', { ascending:false })
-      .limit(200);
-    if(error) throw error;
-    gameState.photos = data || [];
-    inbox.innerHTML = (data||[]).map(row=>{
-      const dt = new Date(row.created_at);
-      const when = dt.toLocaleString();
-      const u = escapeHtml(row.username);
-      const src = escapeHtml(row.url);
-      const pid = row.id;
-      const path = row.path || '';
-      return `
-      <div id="photo-card-${pid}" class="border rounded-xl overflow-hidden shadow-sm">
-        <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
-        <div class="p-3 flex items-center justify-between">
-          <div>
-            <div class="font-semibold text-gray-800">${u}</div>
-            <div class="text-xs text-gray-500">${when}</div>
-          </div>
-          <div class="flex items-center gap-3">
-            <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
-            <button onclick="adminDeletePhoto('${pid}', '${encodeURIComponent(path)}')" class="text-sm text-red-600 hover:text-red-700">🗑️ Delete</button>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-    if(countEl) countEl.textContent = `(${(data||[]).length})`;
-    if(msg) msg.textContent = (data && data.length)? '' : 'No photos yet.';
-  }catch(e){
-    console.error('refreshPhotoInbox', e);
-    if(msg) msg.textContent = '❌ Failed to load photos.';
-  }
-}
-async function adminDeletePhoto(id, pathEnc){
-  const inboxMsg = document.getElementById('photoInboxMsg');
-  const path = decodeURIComponent(pathEnc || '');
-  try{
-    if(path){
-      const { error: delErr } = await sb.storage.from(PHOTO_BUCKET).remove([path]);
-      if(delErr) throw delErr;
-    }
-    const { error: dbErr } = await sb.from(PHOTO_SHARES_TABLE).delete().eq('id', id);
-    if(dbErr) throw dbErr;
-
-    const card = document.getElementById(`photo-card-${id}`);
-    if(card) card.remove();
-    gameState.photos = (gameState.photos||[]).filter(p=>p.id!==id);
-
-    const countEl=document.getElementById('photoCount');
-    if(countEl) countEl.textContent = `(${gameState.photos.length})`;
-    if(inboxMsg) inboxMsg.textContent = '';
-  }catch(e){
-    console.error('adminDeletePhoto', e);
-    if(inboxMsg) inboxMsg.textContent = '❌ Delete failed.';
-  }
-}
-function initPhotoSharingRealtime(){
-  sb.channel('photo-toggle-rt')
-    .on('postgres_changes', { event:'*', schema:'public', table: PHOTO_TOGGLE_TABLE }, () => { fetchPhotoShareAllowed(); })
-    .subscribe();
-
-  sb.channel('photo-shares-rt')
-    .on('postgres_changes', { event:'INSERT', schema:'public', table: PHOTO_SHARES_TABLE }, (payload) => {
-      const row = payload.new;
-      gameState.photos.unshift(row);
-      const inbox=document.getElementById('photoInbox');
-      const countEl=document.getElementById('photoCount');
-      if(inbox){
-        const dt = new Date(row.created_at);
-        const when = dt.toLocaleString();
-        const u = escapeHtml(row.username);
-        const src = escapeHtml(row.url);
-        const pid = row.id;
-        const path = row.path || '';
-        const card = document.createElement('div');
-        card.id = `photo-card-${pid}`;
-        card.className='border rounded-xl overflow-hidden shadow-sm';
-        card.innerHTML = `
-          <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
-          <div class="p-3 flex items-center justify-between">
-            <div>
-              <div class="font-semibold text-gray-800">${u}</div>
-              <div class="text-xs text-gray-500">${when}</div>
-            </div>
-            <div class="flex items-center gap-3">
-              <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
-              <button onclick="adminDeletePhoto('${pid}', '${encodeURIComponent(path)}')" class="text-sm text-red-600 hover:text-red-700">🗑️ Delete</button>
-            </div>
-          </div>`;
-        inbox.prepend(card);
-      }
-      if(countEl) countEl.textContent = `(${gameState.photos.length})`;
-    })
-    .subscribe();
 }
 /* =================== /PHOTO SHARING =================== */
 
@@ -1505,5 +1144,5 @@ function closeLeaderboardModal(){
 })();
 </script>
 </body>
-</html
+</html>
 
