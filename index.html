@@ -330,6 +330,9 @@ let gameState = {
 };
 let photoCountdownTimerId = null;
 
+/* small var to hold our participant polling id */
+let activeQuestionPollId = null;
+
 const warriorAvatars = ['🏹','⚔️','🛡️','🗡️','🏺','🎯','⚡','🔥'];
 const credentials = {
   admin: { username: 'admin', password: 'Thunder4554' },
@@ -538,10 +541,15 @@ function showDashboard(type){
     document.getElementById('participantDashboard').classList.remove('hidden');
     document.getElementById('participantName').textContent=gameState.currentUser||'Warrior';
     document.getElementById('participantAvatar').textContent=gameState.participants[gameState.currentUser]?.avatar||'⚔️';
+    // start polling for active question to ensure immediate display when admin starts set
+    startActiveQuestionPolling();
   }
   applyPhotoShareVisibility();
 }
 function logout(){
+  // stop polling if participant
+  stopActiveQuestionPolling();
+
   if(gameState.userType==='participant' && gameState.currentUser){
     gameState.participants[gameState.currentUser].online=false;
   }
@@ -556,6 +564,22 @@ function logout(){
   updateActiveParticipants();
   saveState();
   refreshAllLeaderboards();
+}
+
+/* poller helpers: ensure participants see newly-inserted questions promptly */
+function startActiveQuestionPolling(){
+  if (activeQuestionPollId) return;
+  // poll every 1 second
+  activeQuestionPollId = setInterval(()=> {
+    // but only when participant dashboard visible
+    if (!document.getElementById('participantDashboard') || document.getElementById('participantDashboard').classList.contains('hidden')) return;
+    fetchActiveQuestion();
+  }, 1000);
+}
+function stopActiveQuestionPolling(){
+  if (!activeQuestionPollId) return;
+  clearInterval(activeQuestionPollId);
+  activeQuestionPollId = null;
 }
 
 /* ===================== ACTIVE QUESTION ===================== */
@@ -1645,7 +1669,7 @@ function closeLeaderboardModal(){
   refreshFastestHistory();
   updatePhotoFastest();
 
-  window.addEventListener('beforeunload', saveState);
+  window.addEventListener('beforeunload', () => { stopActiveQuestionPolling(); saveState(); });
 })();
 </script>
 </body>
