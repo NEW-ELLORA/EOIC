@@ -569,12 +569,12 @@ function logout(){
 /* poller helpers: ensure participants see newly-inserted questions promptly */
 function startActiveQuestionPolling(){
   if (activeQuestionPollId) return;
-  // poll every 1 second
+  // poll every 500ms (faster, helps participants get new question right after reveal)
   activeQuestionPollId = setInterval(()=> {
     // but only when participant dashboard visible
     if (!document.getElementById('participantDashboard') || document.getElementById('participantDashboard').classList.contains('hidden')) return;
     fetchActiveQuestion();
-  }, 1000);
+  }, 500);
 }
 function stopActiveQuestionPolling(){
   if (!activeQuestionPollId) return;
@@ -584,10 +584,12 @@ function stopActiveQuestionPolling(){
 
 /* ===================== ACTIVE QUESTION ===================== */
 async function fetchActiveQuestion(){
+  // tolerate small client-server clock differences by looking slightly behind current client time
+  const nowTolerance = new Date(Date.now() - 2000).toISOString();
   const { data, error } = await sb.from('questions')
     .select('*')
     .eq('ended', false)
-    .gt('ends_at', new Date().toISOString())
+    .gt('ends_at', nowTolerance)
     .order('start_time', { ascending: false })
     .limit(1);
   if(error){ console.error('fetchActiveQuestion error', error); return; }
@@ -794,6 +796,8 @@ async function endQuestion(){
     if(qa) qa.classList.add('hidden');
     if(wa) wa.classList.remove('hidden');
     updateCurrentQuestionStatus();
+    // try to fetch the next question right away (helps participants transition to next question within 1.5s)
+    fetchActiveQuestion().catch(()=>{});
   }, 1500);
 
   clearInterval(gameState.questionTimer);
