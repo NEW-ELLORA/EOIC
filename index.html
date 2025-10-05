@@ -1244,6 +1244,13 @@ function cancelSetRun(){
   clearTimeout(gameState.setRunner.timerId);
   document.getElementById('setRunStatus').textContent = 'Stopped.';
 }
+
+/*
+  Robust insert logic:
+  - Try inserting with is_last flag (useful if your DB has that column)
+  - If insert fails with 400 / unknown column, remove is_last and retry once
+  - Log full Supabase error to console for easy debugging
+*/
 async function runNextInQueue(setName){
   if(!gameState.setRunner.running) return;
   const i=gameState.setRunner.cursor;
@@ -1260,8 +1267,8 @@ async function runNextInQueue(setName){
     console.warn('Image URL may not be a direct image (or data URL). Attempting to display anyway:', item.image_url);
   }
 
-  // mark is_last for last item so participants can know when to show confetti at end
-  const payload = {
+  // Build payload including is_last flag
+  const payloadWithIsLast = {
     text:item.text,
     options:{ A:item.A, B:item.B, C:item.C, D:item.D },
     correct:item.correct,
@@ -1273,15 +1280,36 @@ async function runNextInQueue(setName){
     ended:false,
     run_id: gameState.setRunner.runId || null,
     set_name: setName || null,
-    is_last: (i >= gameState.setRunner.queue.length - 1)  // <-- new flag
+    is_last: (i >= gameState.setRunner.queue.length - 1)  // helpful when DB supports it
   };
-  const { error } = await sb.from('questions').insert(payload);
-  if(error){
-    console.error('Insert question failed:', error);
-    cancelSetRun();
-    alert('Insert question failed. Check schema & policies.');
-    return;
+
+  // First try
+  let res = await sb.from('questions').insert(payloadWithIsLast);
+  if (res.error) {
+    // If server returns a 400 or a column-not-found-like error, attempt a retry without is_last
+    console.warn('Insert question failed (first attempt) — will try retry without optional fields. Supabase error:', res.error);
+    // prepare fallback payload (remove properties that might not exist in DB)
+    const fallbackPayload = Object.assign({}, payloadWithIsLast);
+    delete fallbackPayload.is_last;
+
+    // Retry once
+    const retry = await sb.from('questions').insert(fallbackPayload);
+    if (retry.error) {
+      // Final failure: log everything and cancel the run (so admin sees issue)
+      console.error('Insert question failed after retry. Supabase response (retry):', retry.error);
+      // Optionally cancel the run to avoid looping inserts that always fail
+      cancelSetRun();
+      alert('❌ Insert question failed. Check Console for Supabase error details and ensure your `questions` table schema matches the inserted fields.');
+      return;
+    } else {
+      // Retry succeeded
+      console.info('Insert question succeeded on retry (without is_last).');
+    }
+  } else {
+    // First attempt succeeded
+    console.info('Insert question succeeded (with is_last).');
   }
+
   gameState.setRunner.cursor++;
   const delay = (item.timer||30)*1000 + 500 + 1600;
   gameState.setRunner.timerId = setTimeout(()=>runNextInQueue(setName), delay);
@@ -1631,4 +1659,3 @@ function closeLeaderboardModal(){
 </script>
 </body>
 </html>
-
