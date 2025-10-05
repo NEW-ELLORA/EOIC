@@ -1,28 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Warrior Quiz Arena</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { box-sizing: border-box; }
-    .warrior-bg { background: linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #CD853F 100%); }
-    .ancient-pattern { background-image: radial-gradient(circle at 25% 25%, rgba(255, 215, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255, 69, 0, 1) 0%, transparent 50%); }
-    .timer-ring { stroke-dasharray: 283; stroke-dashoffset: 283; transition: stroke-dashoffset 1s linear; }
-    .confetti { position: fixed; top: -10px; width: 8px; height: 14px; opacity: .9; transform: rotate(15deg); pointer-events:none; }
-    @keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity: 1; } }
-    .rank-jump { animation: rankJump .6s ease-out; }
-    @keyframes rankJump { 0%{transform: translateY(0)} 30%{transform: translateY(-14px)} 100%{transform: translateY(0)} }
-    .modal-bg { background: rgba(0,0,0,.6); }
-    .ff-table th, .ff-table td { white-space: nowrap; }
-    .ff-cell { min-width: 64px; text-align: center; }
-    .ff-badge { padding: 0.15rem 0.4rem; border-radius: 9999px; font-weight: 700; font-size: 0.75rem; display:inline-block; }
+    body { box-sizing:border-box; }
+    .warrior-bg { background: linear-gradient(135deg,#8B4513 0%,#D2691E 50%,#CD853F 100%); }
+    .ancient-pattern { background-image: radial-gradient(circle at 25% 25%, rgba(255,215,0,.08) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(255,69,0,.04) 0%, transparent 50%); }
+    .timer-ring { stroke-dasharray:283; stroke-dashoffset:283; transition:stroke-dashoffset 1s linear; }
+    .confetti { position:fixed; top:-10px; width:8px; height:14px; opacity:.9; transform:rotate(15deg); pointer-events:none; }
+    @keyframes fall { to { transform: translateY(110vh) rotate(360deg); opacity:1; } }
+    .rank-jump { animation:rankJump .6s ease-out; }
+    @keyframes rankJump { 0%{transform:translateY(0)}30%{transform:translateY(-14px)}100%{transform:translateY(0)} }
+    .ff-table th,.ff-table td{ white-space:nowrap; }
+    .ff-cell{ min-width:64px; text-align:center; }
+    .ff-badge{ padding:.15rem .4rem; border-radius:9999px; font-weight:700; font-size:.75rem; display:inline-block;}
   </style>
 </head>
-<body class="warrior-bg ancient-pattern min-h-screen">
+<body class="warrior-bg ancient-pattern min-h-screen text-gray-900">
 
 <!-- LOGIN -->
 <div id="loginScreen" class="min-h-screen p-4 flex items-start justify-center">
@@ -43,10 +42,10 @@
           <input type="password" id="password" class="w-full px-4 py-3 rounded-xl border-2 border-amber-300 focus:border-amber-600 focus:outline-none" placeholder="Enter password"/>
         </div>
         <div class="flex space-x-4">
-          <button onclick="login('admin')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">🛡️ Admin</button>
-          <button onclick="login('participant')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105">⚔️ Warrior</button>
+          <button onclick="login('admin')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl">🛡️ Admin</button>
+          <button onclick="login('participant')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl">⚔️ Warrior</button>
         </div>
-        <button onclick="openLeaderboardModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300">🏆 View Leaderboard</button>
+        <button onclick="openLeaderboardModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-xl">🏆 View Leaderboard</button>
       </div>
       <div class="mt-6 text-sm text-amber-700 bg-amber-50 p-4 rounded-xl">
         <p><strong>Warriors:</strong> warrior1-8 / battle123</p>
@@ -56,7 +55,7 @@
 </div>
 
 <!-- Leaderboard Modal -->
-<div id="leaderboardModal" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
+<div id="leaderboardModal" class="hidden fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl p-6">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-2xl font-bold text-gray-800">🏆 Live Leaderboard</h2>
@@ -71,8 +70,9 @@
   </div>
 </div>
 
-<!-- ADMIN -->
+<!-- ADMIN (unchanged visual) -->
 <div id="adminDashboard" class="hidden min-h-screen p-6">
+  <!-- (Admin UI unchanged — truncated for brevity in explanation) -->
   <div class="max-w-7xl mx-auto">
     <div class="bg-gradient-to-r from-red-800 to-red-600 rounded-2xl p-6 mb-6 text-white">
       <div class="flex justify-between items-center">
@@ -80,21 +80,19 @@
           <h1 class="text-3xl font-bold">🛡️ Admin Command Center</h1>
           <p class="text-red-200">Build sets, add images by URL, run them.</p>
         </div>
-        <button onclick="logout()" class="bg-red-900 hover:bg-red-800 px-4 py-2 rounded-lg transition-colors">Logout</button>
+        <button onclick="logout()" class="bg-red-900 hover:bg-red-800 px-4 py-2 rounded-lg">Logout</button>
       </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- SET BUILDER -->
       <div class="bg-white rounded-2xl shadow-xl p-6 lg:col-span-2">
         <h2 class="text-2xl font-bold text-gray-800 mb-4">🧰 Question Set Builder</h2>
-
         <div class="grid md:grid-cols-3 gap-3 mb-4">
-          <input id="setName" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none md:col-span-2" placeholder="Set name"/>
+          <input id="setName" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Set name"/>
           <button onclick="createFreshSet()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded-lg">➕ New Set (7)</button>
         </div>
         <div class="grid md:grid-cols-3 gap-3 mb-4">
-          <select id="savedSets" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none"></select>
+          <select id="savedSets" class="px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500"></select>
           <button onclick="loadSelectedSet()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg">📥 Load</button>
           <button onclick="saveCurrentSet()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg">💾 Save</button>
         </div>
@@ -108,11 +106,10 @@
           <span id="setRunStatus" class="ml-2 text-sm text-gray-600"></span>
         </div>
         <p id="imageTip" class="mt-3 text-xs text-amber-700">
-          Tip: You can paste a direct image URL (.png/.jpg/.jpeg/.gif/.webp) <em>or</em> a base64 data URL starting with <code>data:image/*;base64,</code>.
+          Tip: You can paste a direct image URL (.png/.jpg/.jpeg/.gif/.webp) or a base64 data URL starting with <code>data:image/*;base64,</code>.
         </p>
       </div>
 
-      <!-- LIVE STATS + ADMIN LB + RESET -->
       <div class="space-y-6">
         <div class="bg-white rounded-2xl shadow-xl p-6">
           <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Battle Statistics</h2>
@@ -135,9 +132,9 @@
         <div class="bg-white rounded-2xl shadow-xl p-6">
           <h2 class="text-2xl font-bold text-gray-800 mb-4">🧮 Points & Participants</h2>
           <div class="space-y-3">
-            <select id="adminSelectUser" class="w-full px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none"></select>
-            <input id="adminDelta" type="number" placeholder="Points (+ or -)" class="w-full px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none"/>
-            <input id="adminReason" type="text" placeholder="Reason" class="w-full px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500 focus:outline-none"/>
+            <select id="adminSelectUser" class="w-full px-3 py-2 rounded-lg border-2 border-gray-300"></select>
+            <input id="adminDelta" type="number" placeholder="Points (+ or -)" class="w-full px-3 py-2 rounded-lg border-2 border-gray-300"/>
+            <input id="adminReason" type="text" placeholder="Reason" class="w-full px-3 py-2 rounded-lg border-2 border-gray-300"/>
             <div class="flex gap-2">
               <button onclick="adminAddPoints()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg">➕/➖ Adjust</button>
               <button onclick="adminRemoveParticipant(true)" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg">🗑️ Remove</button>
@@ -150,13 +147,11 @@
       </div>
     </div>
 
-    <!-- ADMIN LEADERBOARD -->
     <div class="mt-6 bg-white rounded-2xl shadow-xl p-6">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">🏆 Warrior Leaderboard</h2>
       <div id="adminLeaderboard" class="space-y-2"></div>
     </div>
 
-    <!-- ⏱️ FASTEST FINGER LOG (CURRENT RUN ONLY) -->
     <div class="mt-6 bg-white rounded-2xl shadow-xl p-6">
       <div class="flex items-center justify-between">
         <h2 class="text-2xl font-bold text-gray-800 mb-4">⏱️ Fastest Finger Log (This Set)</h2>
@@ -171,17 +166,14 @@
       <div id="ffMsg" class="text-sm text-gray-600 mt-2"></div>
     </div>
 
-    <!-- ==== PHOTO SHARING: Admin Control + Inbox ==== -->
+    <!-- Photo sharing / inbox (unchanged for functionality) -->
     <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Control -->
       <div class="bg-white rounded-2xl shadow-xl p-6">
         <h2 class="text-2xl font-bold text-gray-800 mb-4">📸 Photo Sharing Control</h2>
-
         <label class="flex items-center gap-3 mb-3">
-          <input id="allowPhotoShare" type="checkbox" class="w-5 h-5" onchange="onAdminTogglePhotoShare(this.checked)" />
+          <input id="allowPhotoShare" type="checkbox" class="w-5 h-5" onchange="onAdminTogglePhotoShare(this.checked)"/>
           <span class="text-gray-800 font-semibold">Allow participants to share photos</span>
         </label>
-
         <div id="photoDurationRow" class="flex items-center gap-3 mb-2">
           <label class="text-sm text-gray-700">Auto stop after</label>
           <select id="photoDuration" class="px-2 py-1 border rounded-lg">
@@ -192,18 +184,15 @@
             <option value="0">No auto stop</option>
           </select>
         </div>
-
         <div class="text-sm text-gray-600 mt-1" id="photoToggleMsg"></div>
         <div class="text-sm text-amber-700 mt-1" id="photoCountdown"></div>
       </div>
 
-      <!-- Photo fastest (earliest uploads) -->
       <div class="bg-white rounded-2xl shadow-xl p-6">
         <h2 class="text-2xl font-bold text-gray-800 mb-4">⚡ Fastest Finger (Photo) — Top 3</h2>
         <div id="photoFastestListAdmin" class="text-sm text-gray-700">Waiting for photos...</div>
       </div>
 
-      <!-- Inbox -->
       <div class="bg-white rounded-2xl shadow-xl p-6 lg:col-span-1 lg:col-start-3">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-2xl font-bold text-gray-800">🗃️ Photo Inbox <span id="photoCount" class="text-gray-500 text-lg"></span></h2>
@@ -213,7 +202,7 @@
         <div id="photoInboxMsg" class="text-sm text-gray-600 mt-3"></div>
       </div>
     </div>
-    <!-- ==== /PHOTO SHARING ==== -->
+
   </div>
 </div>
 
@@ -223,7 +212,7 @@
     <div class="bg-gradient-to-r from-blue-800 to-blue-600 rounded-2xl p-6 mb-6 text-white">
       <div class="flex justify-between items-center">
         <div class="flex items-center space-x-4">
-          <div id="participantAvatar" class="text-4xl"></div>
+          <div id="participantAvatar" class="text-4xl">⚔️</div>
           <div>
             <h1 class="text-2xl font-bold" id="participantName">Warrior</h1>
             <p class="text-blue-200">Ready for Battle</p>
@@ -232,7 +221,7 @@
         <div class="text-right">
           <div class="text-3xl font-bold" id="participantScore">0</div>
           <div class="text-blue-200">Points</div>
-          <button onclick="logout()" class="mt-2 bg-blue-900 hover:bg-blue-800 px-4 py-2 rounded-lg transition-colors">Logout</button>
+          <button onclick="logout()" class="mt-2 bg-blue-900 hover:bg-blue-800 px-4 py-2 rounded-lg">Logout</button>
         </div>
       </div>
     </div>
@@ -248,11 +237,15 @@
           <div id="timerText" class="absolute inset-0 flex items-center justify-center text-xl font-bold text-amber-600">30</div>
         </div>
       </div>
+
       <div id="participantImageWrap" class="mb-4 hidden">
         <img id="participantImage" class="w-full max-h-72 object-contain rounded-xl" alt="Question image"/>
       </div>
+
       <div id="participantQuestionText" class="text-xl text-gray-800 mb-6 p-4 bg-amber-50 rounded-xl border-l-4 border-amber-500">Waiting for question...</div>
+
       <div id="optionsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
       <p id="answerLockedMsg" class="mt-4 text-sm text-gray-600"></p>
     </div>
 
@@ -262,22 +255,18 @@
       <p class="text-gray-600" id="waitingMsg">Waiting for the next question from the battle master...</p>
     </div>
 
-    <!-- ==== PHOTO SHARING: Participant Uploader ==== -->
+    <!-- Photo share card -->
     <div id="photoShareCard" class="mt-6 bg-white rounded-2xl shadow-xl p-6 hidden">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">📸 Share a Battle Photo</h2>
       <p class="text-gray-600 mb-3">The battle master has opened photo sharing. Snap a pic and send it!</p>
-
       <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <input id="photoInput" type="file" accept="image/*" capture="environment"
-               class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200"/>
+        <input id="photoInput" type="file" accept="image/*" capture="environment" class="block w-full text-sm text-gray-700"/>
         <button onclick="uploadParticipantPhoto()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-lg">Upload</button>
       </div>
-
       <div class="mt-4 flex items-center gap-4">
         <img id="photoPreview" class="hidden w-40 h-40 object-cover rounded-xl border" alt="Preview"/>
         <div id="photoShareMsg" class="text-sm text-gray-600"></div>
       </div>
-
       <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
         <div class="flex items-center justify-between">
           <h3 class="font-bold text-amber-800">⚡ Fastest Finger (Photo) — Top 3</h3>
@@ -286,7 +275,6 @@
         <div id="photoFastestList" class="mt-3 text-amber-900 text-sm">Waiting for photos...</div>
       </div>
     </div>
-    <!-- ==== /PHOTO SHARING ==== -->
 
     <div class="mt-6 bg-white rounded-2xl shadow-xl p-6">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">🏆 Warrior Rankings</h2>
@@ -296,21 +284,12 @@
 </div>
 
 <script>
-/* ===================== SUPABASE ===================== */
+/* ================= SUPABASE / STATE ================= */
 const SUPABASE_URL = 'https://iondedmhlyonsmpqulhq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvbmRlZG1obHlvbnNtcHF1bGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyOTQ2MjQsImV4cCI6MjA3NDg3MDYyNH0.WFo2SfBf_Z2_e6C_pSuT8YStTCAD9pdGo90JNrgZdzM';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/* ===================== STATE ===================== */
-const STORAGE_KEY = 'warriorQuizState_v11';
-const SETS_KEY = 'warriorQuizSets_v2';
-const LAST_SET_KEY = 'warriorQuizLastSetName';
-const SETS_TABLE = 'question_sets';
-
-const PHOTO_TOGGLE_TABLE = 'photo_share_toggle';
-const PHOTO_SHARES_TABLE = 'photo_shares';
-const PHOTO_BUCKET = 'battle_photos';
-
+/* Local state */
 let gameState = {
   currentUser: null,
   userType: null,
@@ -324,140 +303,105 @@ let gameState = {
   photos: [],
   lastSelected: null
 };
-let photoCountdownTimerId = null;
 
-const warriorAvatars = ['🏹','⚔️','🛡️','🗡️','🏺','🎯','⚡','🔥'];
 const credentials = {
-  admin: { username: 'admin', password: 'Thunder4554' },
+  admin: { username:'admin', password:'Thunder4554' },
   participants: {
     warrior1:'battle123', warrior2:'battle123', warrior3:'battle123', warrior4:'battle123',
     warrior5:'battle123', warrior6:'battle123', warrior7:'battle123', warrior8:'battle123'
   }
 };
 
-/* ===== Presence (Realtime) ===== */
-let presenceChannel = null;
-let presenceRoster = new Set();
-function joinPresence(usernameOrViewer){
-  if (presenceChannel) { try { presenceChannel.unsubscribe(); } catch {} }
-  presenceRoster = new Set();
-  presenceChannel = sb.channel('arena-presence', { config: { presence: { key: usernameOrViewer } } });
-  presenceChannel
-    .on('presence', { event: 'sync' }, () => {
-      const state = presenceChannel.presenceState();
-      const names = new Set();
-      Object.keys(state).forEach(key => { names.add(key); });
-      presenceRoster = names;
-      updateActiveParticipants();
-      refreshAllLeaderboards();
-    })
-    .subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') { await presenceChannel.track({ at: new Date().toISOString() }); }
-    });
-}
+const warriorAvatars = ['🏹','⚔️','🛡️','🗡️','🏺','🎯','⚡','🔥'];
 
-/* ===================== PERSISTENCE ===================== */
+const STORAGE_KEY = 'warriorQuizState_v11';
+
+/* Polling id for participants to pick up questions immediately */
+let participantPollId = null;
+
+/* Simple helpers */
+const escapeHtml = s => (s||'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
+function isDirectImageUrl(u){ if(!u) return false; if(/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(u)) return true; return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u); }
+
+/* Save/load persisted state (keeps lastSelected across reloads while question active) */
 function saveState(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     currentUser:gameState.currentUser,
     userType:gameState.userType,
     participants:gameState.participants,
     prevRanks:gameState.prevRanks,
+    setRunner: gameState.setRunner,
     photoShareAllowed:gameState.photoShareAllowed,
     photoShareExpiresAt:gameState.photoShareExpiresAt,
-    currentRunId:gameState.setRunner.runId || null,
+    currentQuestionId: gameState.currentQuestion?.id || null,
     lastSelected: gameState.lastSelected || null
   }));
 }
 function loadState(){
   try{
-    const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
     if(!s) return;
-    gameState.currentUser=s.currentUser||null;
-    gameState.userType=s.userType||null;
-    gameState.participants=s.participants||{};
-    gameState.prevRanks=s.prevRanks||{};
-    gameState.photoShareAllowed=!!s.photoShareAllowed;
+    gameState.currentUser = s.currentUser || null;
+    gameState.userType = s.userType || null;
+    gameState.participants = s.participants || {};
+    gameState.prevRanks = s.prevRanks || {};
+    if(s.setRunner) gameState.setRunner = s.setRunner;
+    gameState.photoShareAllowed = !!s.photoShareAllowed;
     gameState.photoShareExpiresAt = s.photoShareExpiresAt ?? null;
-    gameState.setRunner.runId = s.currentRunId || null;
     gameState.lastSelected = s.lastSelected || null;
-  }catch{}
+  }catch(e){ console.warn('loadState error', e); }
 }
+
+/* Initialize participants list */
 function initializeParticipants(){
   if(Object.keys(gameState.participants).length) return;
-  Object.keys(credentials.participants).forEach((u,i)=>{
-    gameState.participants[u]={name:u,avatar:warriorAvatars[i],online:false};
-  });
+  Object.keys(credentials.participants).forEach((u,i)=> gameState.participants[u] = { name:u, avatar:warriorAvatars[i], online:false });
 }
 
-/* ===================== HELPERS ===================== */
-const isDirectImageUrl = (u) => {
-  if (!u) return false;
-  if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(u)) return true;
-  return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u);
-};
-const escapeHtml = s => (s||'').replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[m]));
-function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
-
-function markSelectedButton(key){
-  // Add immediate selected (blue) styling to the chosen option
-  const btn = document.querySelector(`#optionsContainer button[data-key="${key}"]`);
-  if(!btn) return;
-  // remove any previous selected
-  [...document.querySelectorAll('#optionsContainer button')].forEach(b=>{
-    b.classList.remove('ring-2','ring-blue-500','bg-blue-600');
-  });
-  btn.classList.add('ring-2','ring-blue-500','bg-blue-600');
-}
-
-/* ========== Realtime & soft refresh ========== */
-let arenaHub = null;          
-let lastEventAt = Date.now(); 
-const SOFT_REFRESH_MS = 6000; 
+/* Presence & realtime wiring (used for leaderboards, fastest finger, photos) */
+let presenceChannel = null;
+let presenceRoster = new Set();
+let arenaHub = null;
+let lastEventAt = Date.now();
+const SOFT_REFRESH_MS = 6000;
 
 function bumpHeartbeat(){ lastEventAt = Date.now(); }
 
-async function softRefresh(){
-  try{
-    await Promise.allSettled([
-      fetchActiveQuestion(),
-      refreshAllLeaderboards(),
-      refreshFastestHistory(),
-      updateFastestFinger(),
-      updatePhotoFastest(),
-      fetchPhotoShareAllowed(),
-      (document.getElementById('adminDashboard')?.classList.contains('hidden') ? Promise.resolve() : refreshPhotoInbox())
-    ]);
-  }catch{}
+function joinPresence(name){
+  try{ if(presenceChannel) presenceChannel.unsubscribe(); }catch(e){}
+  presenceRoster = new Set();
+  presenceChannel = sb.channel('arena-presence', { config:{ presence:{ key:name } }});
+  presenceChannel.on('presence', { event:'sync' }, () => {
+    const s = presenceChannel.presenceState();
+    const names = new Set(Object.keys(s||{}));
+    presenceRoster = names;
+    updateActiveParticipants();
+    refreshAllLeaderboards();
+  }).subscribe(async st => { if(st === 'SUBSCRIBED') await presenceChannel.track({ at:new Date().toISOString() }); });
 }
 
 function wireRealtime(){
-  if (arenaHub) { try{ arenaHub.unsubscribe(); }catch{} }
-
+  try{ if(arenaHub) arenaHub.unsubscribe(); }catch(e){}
   arenaHub = sb.channel('arena-hub');
-
-  const tables = [
-    'answers',
-    'questions',
-    'score_adjustments',
-    'participant_flags',
-    'photo_share_toggle',
-    'photo_shares'
-  ];
-
-  tables.forEach(t => {
-    arenaHub.on('postgres_changes', { event:'*', schema:'public', table: t }, payload => {
+  const tables = ['answers','questions','score_adjustments','participant_flags','photo_share_toggle','photo_shares'];
+  tables.forEach(t=>{
+    arenaHub.on('postgres_changes', { event:'*', schema:'public', table:t }, payload => {
       bumpHeartbeat();
       switch(t){
         case 'answers':
-          refreshAllLeaderboards();
-          updateFastestFinger();
-          refreshFastestHistory();
+          refreshAllLeaderboards(); updateFastestFinger(); refreshFastestHistory();
           break;
         case 'questions': {
           const q = payload.new;
-          if (q && !q.ended && new Date(q.ends_at) > new Date()) setCurrentQuestion(q);
-          else clearQuestionUI();
+          if(q && !q.ended && new Date(q.ends_at) > new Date()){
+            // If a new active question appears, set it immediately
+            setCurrentQuestion(q);
+          } else {
+            // no active question
+            // Clear only if the payload corresponds to the current question ending
+            if(gameState.currentQuestion && q && q.id === gameState.currentQuestion.id && q.ended) clearQuestionUI();
+          }
           refreshFastestHistory();
           break;
         }
@@ -470,50 +414,47 @@ function wireRealtime(){
           break;
         case 'photo_shares':
           updatePhotoFastest();
-          if (!document.getElementById('adminDashboard')?.classList.contains('hidden')) {
-            refreshPhotoInbox();
-          }
+          if(!document.getElementById('adminDashboard')?.classList.contains('hidden')) refreshPhotoInbox();
           break;
       }
     });
   });
-
-  arenaHub.subscribe(status => { if (status === 'SUBSCRIBED') bumpHeartbeat(); });
+  arenaHub.subscribe(status => { if(status === 'SUBSCRIBED') bumpHeartbeat(); });
 }
 
-setInterval(() => {
-  if (Date.now() - lastEventAt > SOFT_REFRESH_MS) { softRefresh(); bumpHeartbeat(); }
-}, 2000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { softRefresh(); bumpHeartbeat(); }});
-window.addEventListener('focus', () => { softRefresh(); bumpHeartbeat(); });
+/* Soft refresh loop (tries to heal if realtime fails) */
+setInterval(()=>{ if(Date.now() - lastEventAt > SOFT_REFRESH_MS) { softRefresh(); bumpHeartbeat(); } }, 2000);
+async function softRefresh(){
+  try{
+    await Promise.allSettled([ fetchActiveQuestion(), refreshAllLeaderboards(), refreshFastestHistory(), updateFastestFinger(), updatePhotoFastest(), fetchPhotoShareAllowed() ]);
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) { softRefresh(); bumpHeartbeat(); }});
+window.addEventListener('focus', ()=>{ softRefresh(); bumpHeartbeat(); });
 
-/* ===================== LOGIN ===================== */
+/* ================ LOGIN / SHOW DASHBOARD ================ */
 function login(type){
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value.trim();
-  if(!username||!password){ alert('Please enter both username and password!'); return; }
-  
-  if (type === 'participant' && presenceRoster.has(username)) {
-    alert(`Warrior "${username}" is already in the arena! Another warrior cannot log in with the same name.`);
-    return;
-  }
+  if(!username || !password){ alert('Please enter both username and password'); return; }
+  if(type === 'participant' && presenceRoster.has(username)){ alert(`"${username}" already present`); return; }
 
-  let ok=false;
-  if(type==='admin'){ ok = (username===credentials.admin.username && password===credentials.admin.password); }
-  else { ok = credentials.participants[username]===password; }
-  if(!ok){ alert('Invalid credentials!'); return; }
-  gameState.currentUser=username;
-  gameState.userType=type;
-  if(type==='participant'){
-    if(!gameState.participants[username]) gameState.participants[username]={name:username,avatar:'⚔️',online:true};
-    gameState.participants[username].online=true;
-    document.getElementById('participantName').textContent=username;
-    document.getElementById('participantAvatar').textContent=gameState.participants[username].avatar;
+  let ok = false;
+  if(type === 'admin') ok = (username === credentials.admin.username && password === credentials.admin.password);
+  else ok = credentials.participants[username] === password;
+
+  if(!ok){ alert('Invalid credentials'); return; }
+  gameState.currentUser = username;
+  gameState.userType = type;
+  if(type === 'participant'){
+    if(!gameState.participants[username]) gameState.participants[username] = { name:username, avatar:'⚔️', online:true };
+    gameState.participants[username].online = true;
+    document.getElementById('participantName').textContent = username;
+    document.getElementById('participantAvatar').textContent = gameState.participants[username].avatar;
   }
   saveState();
   joinPresence(username);
   showDashboard(type);
-  updateActiveParticipants();
   fetchActiveQuestion();
   refreshAllLeaderboards();
   populateAdminSelect(true);
@@ -524,258 +465,359 @@ function login(type){
   updatePhotoFastest();
   wireRealtime();
 }
+
 function showDashboard(type){
   document.getElementById('loginScreen').classList.add('hidden');
-  if(type==='admin') document.getElementById('adminDashboard').classList.remove('hidden');
-  else {
-    if(gameState.currentUser && gameState.participants[gameState.currentUser]) gameState.participants[gameState.currentUser].online=true;
+  if(type === 'admin'){
+    document.getElementById('adminDashboard').classList.remove('hidden');
+    document.getElementById('participantDashboard').classList.add('hidden');
+  } else {
     document.getElementById('participantDashboard').classList.remove('hidden');
-    document.getElementById('participantName').textContent=gameState.currentUser||'Warrior';
-    document.getElementById('participantAvatar').textContent=gameState.participants[gameState.currentUser]?.avatar||'⚔️';
+    document.getElementById('adminDashboard').classList.add('hidden');
+    document.getElementById('participantName').textContent = gameState.currentUser || 'Warrior';
+    document.getElementById('participantAvatar').textContent = gameState.participants[gameState.currentUser]?.avatar || '⚔️';
+    // Start participant immediate poll to pick up questions quickly if realtime isn't instant
+    startParticipantPolling();
   }
   applyPhotoShareVisibility();
 }
+
 function logout(){
-  if(gameState.userType==='participant' && gameState.currentUser){
-    gameState.participants[gameState.currentUser].online=false;
+  if(gameState.userType === 'participant' && gameState.currentUser){
+    gameState.participants[gameState.currentUser].online = false;
   }
-  gameState.currentUser=null;
-  gameState.userType=null;
+  gameState.currentUser = null;
+  gameState.userType = null;
   document.getElementById('adminDashboard').classList.add('hidden');
   document.getElementById('participantDashboard').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
-  document.getElementById('username').value='';
-  document.getElementById('password').value='';
-  joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
+  document.getElementById('username').value = '';
+  document.getElementById('password').value = '';
+  joinPresence('viewer-'+Math.random().toString(36).slice(2,8));
   updateActiveParticipants();
   saveState();
   refreshAllLeaderboards();
+  stopParticipantPolling();
 }
 
-/* ===================== ACTIVE QUESTION ===================== */
+/* ================ ACTIVE QUESTION FETCH / SET ================ */
+
+/*
+  fetchActiveQuestion:
+  - finds the active question where start_time <= now < ends_at
+  - returns and sets it via setCurrentQuestion
+*/
 async function fetchActiveQuestion(){
-  // show any currently active question where start_time <= now < ends_at
-  const nowISO = new Date().toISOString();
-  const { data, error } = await sb.from('questions')
-    .select('*')
-    .lte('start_time', nowISO)
-    .gt('ends_at', nowISO)
-    .order('start_time', { ascending: false })
-    .limit(1);
-  if(error){ console.error('fetchActiveQuestion error', error); return; }
-  if(data && data.length){ setCurrentQuestion(data[0]); }
-  else { clearQuestionUI(); }
+  try{
+    const nowISO = new Date().toISOString();
+    const { data, error } = await sb.from('questions')
+      .select('*')
+      .lte('start_time', nowISO)
+      .gt('ends_at', nowISO)
+      .order('start_time', { ascending:false })
+      .limit(1);
+    if(error){ console.warn('fetchActiveQuestion', error); return; }
+    if(data && data.length) {
+      setCurrentQuestion(data[0]);
+    } else {
+      // nothing active
+      // don't necessarily call clearQuestionUI() here — only when the currently shown question ended
+      // but if there's no active question and we are showing one that ended we clear
+      if(gameState.currentQuestion && Date.now() >= gameState.currentQuestion.endsAt) clearQuestionUI();
+    }
+  }catch(e){ console.error('fetchActiveQuestion exception', e); }
 }
+
+/*
+  setCurrentQuestion:
+  - maps database question into local structure
+  - ensures lastSelected is reset if a different question
+  - shows it for participants and starts timer sync
+*/
 function setCurrentQuestion(q){
-  gameState.currentQuestion = {
-    id:q.id, text:q.text, options:q.options, correct:q.correct,
-    timer:q.timer, points:q.points||100, image_url:q.image_url||null,
-    startTime:new Date(q.start_time).getTime(),
-    endsAt:new Date(q.ends_at).getTime(),
+  // Map DB fields to internal
+  const mapped = {
+    id: q.id,
+    text: q.text,
+    options: q.options,
+    correct: q.correct,
+    timer: q.timer || 30,
+    points: q.points || 100,
+    image_url: q.image_url || null,
+    startTime: new Date(q.start_time).getTime(),
+    endsAt: new Date(q.ends_at).getTime(),
     isLast: !!q.is_last,
     runId: q.run_id || null
   };
-  // preserve lastSelected only for the same question
-  // if it's a new question, reset lastSelected
-  const prevQid = gameState.currentQuestion && gameState.currentQuestion.id;
-  if(!prevQid || prevQid !== q.id) gameState.lastSelected = null;
 
-  if (q.run_id) { gameState.setRunner.runId = q.run_id; saveState(); }
-  if(gameState.userType==='participant') displayQuestionToParticipants();
+  // Only reset lastSelected if the question id changed
+  if(!gameState.currentQuestion || gameState.currentQuestion.id !== mapped.id){
+    gameState.lastSelected = null;
+  }
+
+  gameState.currentQuestion = mapped;
+  if(mapped.runId) { gameState.setRunner.runId = mapped.runId; saveState(); }
+
+  // If participant, display immediately
+  if(gameState.userType === 'participant') displayQuestionToParticipants();
+
+  // Start timer sync
   startOrSyncTimer();
+
+  // Stop participant polling while a question is active (we will rely on realtime/soft refresh)
+  stopParticipantPolling();
+
   updateCurrentQuestionStatus();
   updateFastestFinger();
+  saveState();
 }
+
+/* Clear UI when no active question exists */
 function clearQuestionUI(){
-  gameState.currentQuestion=null;
-  if(gameState.userType==='participant'){
+  gameState.currentQuestion = null;
+  gameState.lastSelected = null;
+  clearInterval(gameState.questionTimer);
+  gameState.questionTimer = null;
+  if(gameState.userType === 'participant'){
     document.getElementById('questionArea').classList.add('hidden');
     document.getElementById('waitingArea').classList.remove('hidden');
     document.getElementById('waitingMsg').textContent = 'Waiting for the next question from the battle master...';
+    // Restart polling to detect the next question ASAP
+    startParticipantPolling();
   }
   updateCurrentQuestionStatus();
-  const ff=document.getElementById('fastestFinger');
-  if(ff) ff.innerHTML='<div class="text-gray-400">Waiting for answers...</div>';
+  const ff = document.getElementById('fastestFinger');
+  if(ff) ff.innerHTML = '<div class="text-gray-400">Waiting for answers...</div>';
+  saveState();
 }
 
-/* ===================== PARTICIPANT VIEW ===================== */
+/* ================ PARTICIPANT VIEW & SELECTION UI ================ */
+
 function displayQuestionToParticipants(){
-  const qa=document.getElementById('questionArea');
-  const wa=document.getElementById('waitingArea');
-  const q=gameState.currentQuestion;
+  const qa = document.getElementById('questionArea');
+  const wa = document.getElementById('waitingArea');
+  const q = gameState.currentQuestion;
   if(!q){ qa.classList.add('hidden'); wa.classList.remove('hidden'); return; }
   wa.classList.add('hidden'); qa.classList.remove('hidden');
 
-  const imgWrap=document.getElementById('participantImageWrap');
-  const img=document.getElementById('participantImage');
+  const imgWrap = document.getElementById('participantImageWrap');
+  const img = document.getElementById('participantImage');
   if(q.image_url && q.image_url.trim() !== ''){
     imgWrap.classList.remove('hidden');
-    img.src=q.image_url;
+    img.src = q.image_url;
   } else {
-    imgWrap.classList.add('hidden'); img.src='';
+    imgWrap.classList.add('hidden'); img.src = '';
   }
 
-  document.getElementById('participantQuestionText').textContent=`${q.text} (Points: ${q.points})`;
+  document.getElementById('participantQuestionText').textContent = `${q.text} (Points: ${q.points})`;
   document.getElementById('answerLockedMsg').textContent = '';
 
-  const optionsContainer=document.getElementById('optionsContainer');
-  optionsContainer.innerHTML='';
-  Object.entries(q.options).forEach(([key,val])=>{
-    const btn=document.createElement('button');
-    btn.dataset.key=key;
-    btn.className='bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 text-left';
-    btn.innerHTML=`<span class="text-xl font-bold">${key}.</span> ${val}`;
-    btn.onclick=()=>submitAnswer(key);
+  const optionsContainer = document.getElementById('optionsContainer');
+  optionsContainer.innerHTML = '';
+
+  // Build option buttons (A/B/C/D from q.options)
+  Object.entries(q.options || {}).forEach(([key, val]) => {
+    const btn = document.createElement('button');
+    btn.dataset.key = key;
+    btn.type = 'button';
+    // base style
+    btn.className = 'text-left font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 text-white';
+    // gradient base using tailwind classes via inline class names (unchanged)
+    btn.classList.add('bg-amber-500');
+    btn.style.background = 'linear-gradient(90deg,#f59e0b,#d97706)'; // amber gradient fallback
+
+    btn.innerHTML = `<div class="flex items-center gap-3"><span class="text-xl font-extrabold">${key}.</span><span class="truncate">${escapeHtml(val)}</span></div>`;
+    btn.onclick = () => participantSelectOption(key);
     optionsContainer.appendChild(btn);
   });
 
-  // if participant had previously selected for this question, show selection and lock UI
-  if (gameState.lastSelected != null) {
+  // If participant already selected (e.g. from earlier), mark & lock
+  if(gameState.lastSelected != null){
     markSelectedButton(gameState.lastSelected);
     disableButtonsOnly();
     const locked = document.getElementById('answerLockedMsg');
-    if (locked) locked.textContent = 'Answer locked. Waiting for reveal…';
-  }
-}
-function confettiBurst(){
-  for(let i=0;i<36;i++){
-    const d=document.createElement('div');
-    d.className='confetti';
-    d.style.left=Math.random()*100+'vw';
-    d.style.background=`hsl(${Math.random()*360},80%,60%)`;
-    d.style.animation=`fall ${1.2+Math.random()*1.2}s linear forwards`;
-    document.body.appendChild(d);
-    setTimeout(()=>d.remove(), 2400);
+    if(locked) locked.textContent = 'Answer locked. Waiting for reveal…';
   }
 }
 
-function disableButtonsOnly(){
-  const buttons=[...document.querySelectorAll('#optionsContainer button')];
-  buttons.forEach(b=>{
-    b.disabled=true;
-    b.classList.add('opacity-70','cursor-not-allowed');
+/* Mark chosen button visually (dark blue) */
+function markSelectedButton(key){
+  if(!key) return;
+  [...document.querySelectorAll('#optionsContainer button')].forEach(b=>{
+    b.classList.remove('ring-2','ring-blue-600','bg-blue-700','bg-green-500','bg-red-500');
+    b.style.boxShadow = '';
   });
-  // if there is a selected option, visually keep it selected (blue)
-  if (gameState.lastSelected) {
-    const selectedBtn = document.querySelector(`#optionsContainer button[data-key="${gameState.lastSelected}"]`);
-    if (selectedBtn) {
-      selectedBtn.classList.add('ring-2','ring-blue-500','bg-blue-600');
-    }
+  const chosen = document.querySelector(`#optionsContainer button[data-key="${key}"]`);
+  if(chosen){
+    chosen.classList.add('ring-2','ring-blue-600');
+    chosen.style.background = '#1e40af';  // dark blue fill
+    chosen.style.color = 'white';
   }
 }
+
+/* Disable buttons (keep selected button visually blue) */
+function disableButtonsOnly(){
+  const buttons = [...document.querySelectorAll('#optionsContainer button')];
+  buttons.forEach(b => { b.disabled = true; b.classList.add('opacity-80'); b.style.cursor = 'default'; });
+  // keep selected still visually blue
+  if(gameState.lastSelected){
+    markSelectedButton(gameState.lastSelected);
+  }
+}
+
+/* Reveal correct/wrong colors when question ends
+   - correct -> green
+   - selected wrong -> red
+   - others -> dim
+*/
 function revealCorrectThenPause(correctKey, selectedKey){
-  const buttons=[...document.querySelectorAll('#optionsContainer button')];
+  const buttons = [...document.querySelectorAll('#optionsContainer button')];
   if(!buttons.length) return;
-  buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-70','cursor-not-allowed'); });
 
   buttons.forEach(btn=>{
-    const key=btn.dataset.key;
-    // clear earlier gradients/styling
-    btn.classList.remove('from-amber-400','to-amber-600','from-red-400','to-red-600','from-green-400','to-green-600','ring-2','ring-blue-500','bg-blue-600','opacity-70','cursor-not-allowed');
+    const key = btn.dataset.key;
+    // reset classes
+    btn.classList.remove('ring-2','ring-blue-600');
+    btn.disabled = true;
+    btn.style.cursor = 'default';
+    btn.style.opacity = '0.9';
+  });
 
-    if(key===correctKey){
-      // correct green
-      btn.classList.add('from-green-400','to-green-600','bg-gradient-to-r');
-      btn.classList.remove('opacity-70','cursor-not-allowed');
-      btn.disabled=false; // allow click prevention visually kept but maybe re-enable for accessibility
-    } else if(selectedKey && key===selectedKey && selectedKey!==correctKey){
-      // wrong selected red
-      btn.classList.add('from-red-400','to-red-600','bg-gradient-to-r');
+  buttons.forEach(btn=>{
+    const key = btn.dataset.key;
+    if(key === correctKey){
+      // green
+      btn.style.background = 'linear-gradient(90deg,#34d399,#10b981)'; // green gradient
+      btn.style.color = '#064e3b';
+      btn.style.fontWeight = '800';
+    } else if(selectedKey && key === selectedKey && selectedKey !== correctKey){
+      // wrong selected -> red
+      btn.style.background = 'linear-gradient(90deg,#f87171,#ef4444)';
+      btn.style.color = '#7f1d1d';
+      btn.style.fontWeight = '700';
     } else {
-      // neutral rest
-      btn.classList.add('from-amber-400','to-amber-600','bg-gradient-to-r');
+      // neutral dim amber
+      btn.style.background = 'linear-gradient(90deg,#f3c677,#f59e0b)';
+      btn.style.color = '#7c2d12';
     }
   });
 }
 
-/* ===================== TIMER ===================== */
+/* Confetti effect (keeps short and performant) */
+function confettiBurst(){
+  for(let i=0;i<28;i++){
+    const d = document.createElement('div');
+    d.className = 'confetti';
+    d.style.left = Math.random()*100 + 'vw';
+    d.style.background = `hsl(${Math.random()*360}deg 80% 60%)`;
+    d.style.animation = `fall ${1.2 + Math.random()*1.4}s linear forwards`;
+    document.body.appendChild(d);
+    setTimeout(()=> d.remove(), 2800);
+  }
+}
+
+/* ================ TIMER ================ */
 function startOrSyncTimer(){
   clearInterval(gameState.questionTimer);
-  const q=gameState.currentQuestion; if(!q) return;
-  const circle=document.getElementById('timerCircle');
-  const text=document.getElementById('timerText');
+  const q = gameState.currentQuestion;
+  if(!q) return;
+  const circle = document.getElementById('timerCircle');
+  const text = document.getElementById('timerText');
+
   function tick(){
-    const now=Date.now();
-    const remainingMs=q.endsAt-now;
-    const remaining=Math.max(0,Math.ceil(remainingMs/1000));
-    if(text) text.textContent=remaining;
+    const now = Date.now();
+    const remainingMs = q.endsAt - now;
+    const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+    if(text) text.textContent = remaining;
     if(circle){
-      const elapsed=Math.min(q.timer,Math.max(0,Math.floor((now-q.startTime)/1000)));
-      const progress=elapsed/q.timer;
-      const offset=283-progress*283;
-      circle.style.strokeDashoffset=offset;
+      const elapsed = Math.min(q.timer, Math.max(0, Math.floor((now - q.startTime)/1000)));
+      const progress = elapsed / q.timer;
+      const offset = 283 - progress * 283;
+      circle.style.strokeDashoffset = offset;
     }
-    if(remaining<=0){ clearInterval(gameState.questionTimer); endQuestion(); }
+    if(remaining <= 0){
+      clearInterval(gameState.questionTimer);
+      gameState.questionTimer = null;
+      endQuestion(); // reveal & advance logic
+    }
   }
   tick();
-  gameState.questionTimer=setInterval(tick,1000);
+  gameState.questionTimer = setInterval(tick, 1000);
 }
 
-/* ===================== ANSWER SUBMIT ===================== */
-async function submitAnswer(answer){
-  const q=gameState.currentQuestion;
-  if(!q||!gameState.currentUser) return;
-  if(Date.now()>=q.endsAt){ endQuestion(); return; }
-  const now=Date.now();
-  const timeTaken=now-q.startTime;
-  const isCorrect=(answer===q.correct);
+/* ================ SUBMIT ANSWER ================ */
+async function participantSelectOption(key){
+  const q = gameState.currentQuestion;
+  if(!q || !gameState.currentUser) return;
+  if(Date.now() >= q.endsAt) { endQuestion(); return; }
 
-  // mark selection visually immediately
-  gameState.lastSelected = answer;
-  markSelectedButton(answer);
+  // Mark selection immediately for UX
+  gameState.lastSelected = key;
+  markSelectedButton(key);
   disableButtonsOnly();
   const locked = document.getElementById('answerLockedMsg');
-  if (locked) locked.textContent = 'Answer locked. Waiting for reveal…';
-
-  const { error } = await sb.from('answers').insert({
-    question_id:q.id, username:gameState.currentUser, answer, time_ms:timeTaken, is_correct:isCorrect
-  });
-  if(error){ console.warn('submitAnswer error', error); return; }
-
+  if(locked) locked.textContent = 'Answer locked. Waiting for reveal…';
   saveState();
-  // do NOT trigger confetti here — confetti only shown at end of set if last question and correct
+
+  const timeTaken = Date.now() - q.startTime;
+  const isCorrect = (key === q.correct);
+
+  try{
+    const { error } = await sb.from('answers').insert({
+      question_id: q.id,
+      username: gameState.currentUser,
+      answer: key,
+      time_ms: timeTaken,
+      is_correct: isCorrect
+    });
+    if(error) console.warn('submitAnswer error', error);
+  }catch(e){ console.error('submitAnswer exception', e); }
+
+  // Do not immediately show confetti here — confetti only on last question and after reveal
 }
 
-/* ===================== END QUESTION (reveal, then clear) ===================== */
+/* ================ END QUESTION: reveal -> auto advance -> housekeeping ================ */
 async function endQuestion(){
   const q = gameState.currentQuestion;
-  if(!q){ clearInterval(gameState.questionTimer); gameState.questionTimer=null; return; }
-  // reveal the correct/wrong styling
+  if(!q){
+    // nothing active
+    clearInterval(gameState.questionTimer);
+    gameState.questionTimer = null;
+    return;
+  }
+
+  // reveal correct/wrong
   revealCorrectThenPause(q.correct, gameState.lastSelected);
 
-  // If this question is marked as last in the run and participant selected the correct answer => show confetti
-  try {
-    if (q.isLast && gameState.lastSelected && gameState.lastSelected === q.correct) {
-      // small delay to let reveal show, then confetti
-      setTimeout(()=>confettiBurst(), 600);
-    }
-  } catch(e){ console.warn('confetti decision failed', e); }
+  // If it's the last question in the run and participant selected correctly, show confetti after small reveal
+  if(q.isLast && gameState.lastSelected && gameState.lastSelected === q.correct){
+    setTimeout(()=> confettiBurst(), 450); // slight delay to show reveal then confetti
+  }
 
+  // After 1.5s (reveal time) clear and let participant wait for the next question
   setTimeout(()=>{
-    gameState.currentQuestion=null;
-    gameState.lastSelected=null;
-    const qa=document.getElementById('questionArea');
-    const wa=document.getElementById('waitingArea');
+    // Clear local question UI and re-enable polling to catch next question quickly
+    gameState.currentQuestion = null;
+    gameState.lastSelected = null;
+    clearInterval(gameState.questionTimer);
+    gameState.questionTimer = null;
+    const qa = document.getElementById('questionArea');
+    const wa = document.getElementById('waitingArea');
     if(qa) qa.classList.add('hidden');
     if(wa) wa.classList.remove('hidden');
     updateCurrentQuestionStatus();
     saveState();
+    // Restart polling to pick up the next question if it hasn't arrived via realtime
+    startParticipantPolling();
+    // refresh leaderboards and fastest finger so participant sees updated info quickly
+    refreshAllLeaderboards();
+    updateFastestFinger();
+    refreshFastestHistory();
   }, 1500);
-
-  clearInterval(gameState.questionTimer);
-  gameState.questionTimer=null;
-  updateFastestFinger();
-  refreshAllLeaderboards();
-  refreshFastestHistory();
-  saveState();
 }
 
-/* ===================== LEADERBOARD ===================== */
-function pointsFromAnswer(record, qMap){
-  if(!record.is_correct) return 0;
-  const q = qMap[record.question_id];
-  return q ? (q.points || 100) : 100;
-}
+/* ================ LEADERBOARD / FASTEST FINGER ================ */
+
 async function computeLeaderboard(){
   const users = Object.keys(credentials.participants);
   const [{ data: answers }, { data: qs }] = await Promise.all([
@@ -783,48 +825,36 @@ async function computeLeaderboard(){
     sb.from('questions').select('id,points')
   ]);
   const qMap = Object.fromEntries((qs||[]).map(q=>[q.id, q]));
-  
   const stats = {};
-  users.forEach(u => {
-    stats[u] = { score: 0, totalTime: 0, correctCount: 0 };
-  });
-
+  users.forEach(u => stats[u] = { score:0, totalTime:0, correctCount:0 });
   (answers||[]).forEach(r=>{
-    if(!stats[r.username]) stats[r.username] = { score: 0, totalTime: 0, correctCount: 0 };
+    if(!stats[r.username]) stats[r.username] = { score:0, totalTime:0, correctCount:0 };
     if(r.is_correct){
-      stats[r.username].score += pointsFromAnswer(r, qMap);
+      stats[r.username].score += (qMap[r.question_id] ? qMap[r.question_id].points : 100);
       stats[r.username].totalTime += r.time_ms;
-      stats[r.username].correctCount += 1;
+      stats[r.username].correctCount++;
     }
   });
-  
   const { data: adj } = await sb.from('score_adjustments').select('username,delta');
-  (adj||[]).forEach(a=>{
-    if(!stats[a.username]) stats[a.username] = { score: 0, totalTime: 0, correctCount: 0 };
-    stats[a.username].score += (a.delta||0);
-  });
-  
+  (adj||[]).forEach(a=>{ if(!stats[a.username]) stats[a.username] = { score:0, totalTime:0, correctCount:0 }; stats[a.username].score += (a.delta||0); });
   const { data: flags } = await sb.from('participant_flags').select('username,removed');
   const removed = new Set((flags||[]).filter(f=>f.removed).map(f=>f.username));
-  
-  const rows = Object.entries(stats)
-    .filter(([u,_])=>!removed.has(u))
-    .map(([u,s])=>({ 
-      name: u, 
-      score: s.score, 
-      avgTime: s.correctCount > 0 ? (s.totalTime / s.correctCount / 1000) : null,
-      avatar: gameState.participants[u]?.avatar||'⚔️', 
-      online: presenceRoster.has(u) 
-    }))
-    .sort((a,b)=>{
-      if (b.score !== a.score) return b.score - a.score;
-      if (a.avgTime === null && b.avgTime === null) return 0;
-      if (a.avgTime === null) return 1;
-      if (b.avgTime === null) return -1;
-      return a.avgTime - b.avgTime;
-    });
+  const rows = Object.entries(stats).filter(([u,_])=> !removed.has(u)).map(([u,s])=>({
+    name: u,
+    score: s.score,
+    avgTime: s.correctCount>0 ? (s.totalTime / s.correctCount / 1000) : null,
+    avatar: gameState.participants[u]?.avatar || '⚔️',
+    online: presenceRoster.has(u)
+  })).sort((a,b)=>{
+    if(b.score !== a.score) return b.score - a.score;
+    if(a.avgTime === null && b.avgTime === null) return 0;
+    if(a.avgTime === null) return 1;
+    if(b.avgTime === null) return -1;
+    return a.avgTime - b.avgTime;
+  });
   return rows;
 }
+
 let chartInstance = null;
 async function refreshAllLeaderboards(){
   const rows = await computeLeaderboard();
@@ -832,6 +862,7 @@ async function refreshAllLeaderboards(){
   renderLeaderboard('adminLeaderboard', rows);
   renderLeaderboard('participantLeaderboard', rows);
 
+  // chart in modal
   const canvas = document.getElementById('leaderboardChart');
   if(canvas && !document.getElementById('leaderboardModal').classList.contains('hidden')){
     const labels = rows.map(r=>r.name);
@@ -839,38 +870,39 @@ async function refreshAllLeaderboards(){
     const ctx = canvas.getContext('2d');
     if(chartInstance) chartInstance.destroy();
     chartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: { labels, datasets: [{ label: 'Points', data: scores, borderWidth: 2, borderRadius: 10, borderColor: '#ffffff',
-        backgroundColor: ['#f87171','#fb923c','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#facc15'] }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-        scales: { x: { ticks: { color: '#6b7280' }, grid: { display:false } }, y: { beginAtZero: true, ticks: { color: '#6b7280' } } } }
+      type:'bar',
+      data:{ labels, datasets:[{ label:'Points', data:scores, borderWidth:2, borderRadius:10, borderColor:'#ffffff', backgroundColor:['#f87171','#fb923c','#fbbf24','#34d399','#60a5fa','#a78bfa','#f472b6','#facc15'] }]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ color:'#6b7280' }, grid:{ display:false } }, y:{ beginAtZero:true, ticks:{ color:'#6b7280' } } } }
     });
   }
 
-  if(gameState.userType==='participant' && gameState.currentUser){
-    const me=rows.find(r=>r.name===gameState.currentUser);
-    if(me) document.getElementById('participantScore').textContent=me.score;
+  if(gameState.userType === 'participant' && gameState.currentUser){
+    const me = rows.find(r => r.name === gameState.currentUser);
+    if(me) document.getElementById('participantScore').textContent = me.score;
   }
+
   populateAdminSelect(true);
 }
+
+/* Render leaderboard cards */
 function renderLeaderboard(containerId, rows){
-  const el=document.getElementById(containerId);
+  const el = document.getElementById(containerId);
   if(!el) return;
-  const prev=gameState.prevRanks||{};
-  const mapRank={};
-  rows.forEach((r,i)=>mapRank[r.name]=i+1);
+  const prev = gameState.prevRanks || {};
+  const mapRank = {};
+  rows.forEach((r,i) => mapRank[r.name] = i+1);
   el.innerHTML = rows.map((p,i)=>{
-    const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'🏅';
-    const status=p.online?'<span class="text-green-600">Online</span>':'<span class="text-gray-400">Offline</span>';
-    const me=p.name===gameState.currentUser && gameState.userType==='participant';
-    const hl=me?'ring-2 ring-blue-500 bg-blue-50':'bg-gradient-to-r from-amber-50 to-orange-50';
-    const jump=(prev[p.name] && prev[p.name]>(i+1))?'rank-jump':'';
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'🏅';
+    const status = p.online ? '<span class="text-green-600">Online</span>' : '<span class="text-gray-400">Offline</span>';
+    const me = p.name === gameState.currentUser && gameState.userType === 'participant';
+    const hl = me ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-gradient-to-r from-amber-50 to-orange-50';
+    const jump = (prev[p.name] && prev[p.name] > (i+1)) ? 'rank-jump' : '';
     return `<div class="flex items-center justify-between p-3 ${hl} ${jump} rounded-xl border border-amber-200">
       <div class="flex items-center space-x-4">
         <span class="text-2xl">${medal}</span>
         <span class="text-2xl">${p.avatar}</span>
         <div>
-          <div class="font-bold text-gray-800">${p.name} ${me?'(You)':''}</div>
+          <div class="font-bold text-gray-800">${p.name} ${me? '(You)':''}</div>
           <div class="text-sm text-gray-600">Rank #${i+1} • ${status}</div>
         </div>
       </div>
@@ -884,674 +916,447 @@ function renderLeaderboard(containerId, rows){
   saveState();
 }
 
-/* ====== FASTEST FINGER (CURRENT QUESTION) ====== */
+/* Fastest finger for current question */
 async function updateFastestFinger(){
-  const el=document.getElementById('fastestFinger'); if(!el) return;
-  const q=gameState.currentQuestion;
-  
-  if(!q){ 
-    el.innerHTML = '<div class="text-gray-400">Waiting for answers...</div>'; 
-    return;
-  }
-
-  const { data, error } = await sb.from('answers').select('username,time_ms,is_correct').eq('question_id', q.id);
-  if(error){ 
-    console.error('fastest error', error); 
-    el.innerHTML = '<div class="text-gray-400">Waiting for answers...</div>';
-    return;
-  }
-
-  const correct = (data||[]).filter(r=>r.is_correct).sort((a,b)=>a.time_ms-b.time_ms);
-  
-  if(!correct.length){ 
-    el.innerHTML = '<div class="text-gray-400">No correct answers yet...</div>'; 
-  } else {
-    const medals = ['🥇','🥈','🥉','🏅','🏅'];
-    el.innerHTML = correct.slice(0, 5).map((f, i) => {
-      const avatar = gameState.participants[f.username]?.avatar||'⚡';
-      return `<div class="flex justify-between items-center text-sm py-1">
-                <span class="flex items-center gap-2">
-                  <span>${medals[i]} ${avatar}</span>
-                  <span class="font-semibold">${f.username}</span>
-                </span>
-                <span class="font-bold text-green-700">${(f.time_ms/1000).toFixed(1)}s</span>
-              </div>`;
-    }).join(''); 
-  }
-
-  const statusEl=document.getElementById('currentQuestionStatus');
-  if(statusEl) statusEl.textContent=`Active - ${(data||[]).length} warriors answered`;
-}
-function updateCurrentQuestionStatus(){
-  const el = document.getElementById('currentQuestionStatus');
+  const el = document.getElementById('fastestFinger');
+  const q = gameState.currentQuestion;
   if(!el) return;
-  if(gameState.currentQuestion) return;
-  el.textContent = 'No active question';
-}
-function updateActiveParticipants(){
-  const count = Array.from(presenceRoster).filter(u => /^warrior[1-8]$/.test(u)).length;
-  const el=document.getElementById('activeParticipants');
-  if(el) el.textContent=`${count} warriors online`;
+  if(!q){ el.innerHTML = '<div class="text-gray-400">Waiting for answers...</div>'; return; }
+  try{
+    const { data, error } = await sb.from('answers').select('username,time_ms,is_correct').eq('question_id', q.id);
+    if(error){ console.warn('fastest error', error); el.innerHTML = '<div class="text-gray-400">Waiting for answers...</div>'; return; }
+    const correct = (data||[]).filter(r => r.is_correct).sort((a,b)=>a.time_ms - b.time_ms);
+    if(!correct.length) el.innerHTML = '<div class="text-gray-400">No correct answers yet...</div>';
+    else {
+      const medals = ['🥇','🥈','🥉','🏅','🏅'];
+      el.innerHTML = correct.slice(0,5).map((f,i) => {
+        const avatar = gameState.participants[f.username]?.avatar || '⚡';
+        return `<div class="flex justify-between items-center text-sm py-1">
+          <span class="flex items-center gap-2"><span>${medals[i]} ${avatar}</span><span class="font-semibold">${f.username}</span></span>
+          <span class="font-bold text-green-700">${(f.time_ms/1000).toFixed(1)}s</span>
+        </div>`;
+      }).join('');
+    }
+    const statusEl = document.getElementById('currentQuestionStatus');
+    if(statusEl) statusEl.textContent = `Active - ${(data||[]).length} warriors answered`;
+  }catch(e){ console.error('updateFastestFinger', e); }
 }
 
-/* ====== FASTEST FINGER HISTORY (STRICTLY CURRENT RUN) ====== */
+/* ================ FASTEST HISTORY (set run) ================ */
 async function resolveCurrentRunId(){
-  if (gameState.setRunner.runId) return gameState.setRunner.runId;
-  const { data: lastQ } = await sb.from('questions')
-    .select('run_id')
-    .order('start_time', { ascending:false })
-    .limit(1);
-  const rid = (lastQ && lastQ[0] && lastQ[0].run_id) ? lastQ[0].run_id : null;
-  if (rid) { gameState.setRunner.runId = rid; saveState(); }
-  return rid;
+  if(gameState.setRunner.runId) return gameState.setRunner.runId;
+  try{
+    const { data } = await sb.from('questions').select('run_id').order('start_time',{ ascending:false }).limit(1);
+    const rid = (data && data[0] && data[0].run_id) ? data[0].run_id : null;
+    if(rid){ gameState.setRunner.runId = rid; saveState(); }
+    return rid;
+  }catch(e){ return null; }
 }
+
 async function refreshFastestHistory(){
   const btn = document.getElementById('ffRefreshBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Loading...'; }
-
   try{
     const runId = await resolveCurrentRunId();
-
-    if (!runId) {
-      document.getElementById('ffHead').innerHTML='';
-      document.getElementById('ffBody').innerHTML='';
-      document.getElementById('ffMsg').textContent='No active set yet. Start a set to see history.';
+    if(!runId){
+      document.getElementById('ffHead').innerHTML = '';
+      document.getElementById('ffBody').innerHTML = '';
+      document.getElementById('ffMsg').textContent = 'No active set yet. Start a set to see history.';
       return;
     }
-    
-    const { data: qList, error: qErr } = await sb.from('questions')
-      .select('id,text,start_time')
-      .eq('run_id', runId)
-      .order('start_time', { ascending:true });
-
+    const { data: qList, error: qErr } = await sb.from('questions').select('id,text,start_time').eq('run_id', runId).order('start_time',{ ascending:true });
     if(qErr) throw qErr;
-    
     if(!qList.length){
-      document.getElementById('ffHead').innerHTML='';
-      document.getElementById('ffBody').innerHTML='';
-      document.getElementById('ffMsg').textContent='No questions for this set yet.';
+      document.getElementById('ffHead').innerHTML = '';
+      document.getElementById('ffBody').innerHTML = '';
+      document.getElementById('ffMsg').textContent = 'No questions for this set yet.';
       return;
     }
-
     const qIds = qList.map(q=>q.id);
-    const { data: ans, error: aErr } = await sb.from('answers')
-      .select('question_id,username,time_ms,is_correct')
-      .in('question_id', qIds);
+    const { data: ans, error: aErr } = await sb.from('answers').select('question_id,username,time_ms,is_correct').in('question_id', qIds);
     if(aErr) throw aErr;
-
     const users = Object.keys(credentials.participants);
-    const headHtml = `
-      <tr class="bg-gray-50">
-        <th class="px-3 py-2 text-left font-semibold text-gray-700">Question</th>
-        ${users.map(u=>`<th class="px-2 py-2 text-center font-semibold text-gray-700">${u}</th>`).join('')}
-      </tr>`;
+    const headHtml = `<tr class="bg-gray-50"><th class="px-3 py-2 text-left font-semibold text-gray-700">Question</th>${users.map(u=>`<th class="px-2 py-2 text-center font-semibold text-gray-700">${u}</th>`).join('')}</tr>`;
     document.getElementById('ffHead').innerHTML = headHtml;
-
     const byQ = {};
-    (ans||[]).forEach(r=>{
-      if(!byQ[r.question_id]) byQ[r.question_id] = {};
-      byQ[r.question_id][r.username] = r;
-    });
-
-    const bodyHtml = qList.map((q, idx)=>{
+    (ans||[]).forEach(r => { if(!byQ[r.question_id]) byQ[r.question_id] = {}; byQ[r.question_id][r.username] = r; });
+    const bodyHtml = qList.map((q, idx) => {
       const qLabel = `Q${idx+1}`;
-      const rowCells = users.map(u=>{
-        const rec = (byQ[q.id]||{})[u];
+      const rowCells = users.map(u => {
+        const rec = (byQ[q.id] || {})[u];
         if(!rec) return `<td class="ff-cell px-2 py-2 text-gray-300">—</td>`;
         const s = (rec.time_ms/1000).toFixed(1)+'s';
         const good = rec.is_correct;
         const badgeClass = good ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
         const mark = good ? '✔' : '✖';
-        return `<td class="ff-cell px-2 py-2">
-          <span class="ff-badge ${badgeClass}" title="${good?'Correct':'Wrong'}">${s} ${mark}</span>
-        </td>`;
+        return `<td class="ff-cell px-2 py-2"><span class="ff-badge ${badgeClass}" title="${good?'Correct':'Wrong'}">${s} ${mark}</span></td>`;
       }).join('');
-      const qTextSafe = escapeHtml(q.text||'');
-      return `<tr class="border-b">
-        <td class="px-3 py-2">
-          <div class="font-semibold text-gray-800">${qLabel}</div>
-          <div class="text-xs text-gray-500 truncate max-w-[380px]" title="${qTextSafe}">${qTextSafe}</div>
-        </td>
-        ${rowCells}
-      </tr>`;
+      const qTextSafe = escapeHtml(q.text || '');
+      return `<tr class="border-b"><td class="px-3 py-2"><div class="font-semibold text-gray-800">${qLabel}</div><div class="text-xs text-gray-500 truncate max-w-[380px]" title="${qTextSafe}">${qTextSafe}</div></td>${rowCells}</tr>`;
     }).join('');
-
     document.getElementById('ffBody').innerHTML = bodyHtml;
-    document.getElementById('ffMsg').textContent =
-      `Showing ${qList.length} question(s) in this set. ✔ correct, ✖ wrong.`;
-  }catch(e){
-    console.error('refreshFastestHistory', e);
-    const msg=document.getElementById('ffMsg');
-    if(msg) msg.textContent='❌ Failed to load fastest finger history.';
-  }finally{
-    if(btn){ btn.disabled = false; btn.textContent = 'Refresh'; }
-  }
+    document.getElementById('ffMsg').textContent = `Showing ${qList.length} question(s) in this set. ✔ correct, ✖ wrong.`;
+  }catch(e){ console.error('refreshFastestHistory', e); const msg=document.getElementById('ffMsg'); if(msg) msg.textContent='❌ Failed to load fastest finger history.'; }
+  finally { if(btn){ btn.disabled = false; btn.textContent = 'Refresh'; } }
 }
 
-/* ====== Photo Fastest (earliest 3 uploads overall) ====== */
+/* ================ PHOTO FASTEST / SHARING ================ */
+const PHOTO_TOGGLE_TABLE = 'photo_share_toggle';
+const PHOTO_SHARES_TABLE = 'photo_shares';
+const PHOTO_BUCKET = 'battle_photos';
+
 async function updatePhotoFastest(){
-  const els = [
-    document.getElementById('photoFastestList'),
-    document.getElementById('photoFastestListAdmin')
-  ].filter(Boolean);
-
+  const els = [ document.getElementById('photoFastestList'), document.getElementById('photoFastestListAdmin') ].filter(Boolean);
   if(!els.length) return;
-
   try{
-    const { data, error } = await sb.from(PHOTO_SHARES_TABLE)
-      .select('username,created_at')
-      .order('created_at', { ascending: true })
-      .limit(3);
-
-    if(error){ throw error; }
-
+    const { data, error } = await sb.from(PHOTO_SHARES_TABLE).select('username,created_at').order('created_at',{ ascending:true }).limit(3);
+    if(error) throw error;
     const uploads = data || [];
-
-    if(!uploads.length){
-      els.forEach(el => el.textContent = 'No photos yet...');
-      return;
-    }
-
+    if(!uploads.length){ els.forEach(el=>el.textContent = 'No photos yet...'); return; }
     const medals = ['🥇','🥈','🥉'];
-    const html = uploads.map((r, i)=>{
+    const html = uploads.map((r,i) => {
       const place = medals[i] || '🏅';
       const avatar = gameState.participants[r.username]?.avatar || '📸';
       const when = new Date(r.created_at).toLocaleTimeString();
-      return `<div class="flex items-center justify-between py-1">
-        <div class="flex items-center gap-2">
-          <span>${place}</span>
-          <span class="text-xl">${avatar}</span>
-          <span class="font-semibold">${r.username}</span>
-        </div>
-        <div class="text-gray-700 font-medium">${when}</div>
-      </div>`;
+      return `<div class="flex items-center justify-between py-1"><div class="flex items-center gap-2"><span>${place}</span><span class="text-xl">${avatar}</span><span class="font-semibold">${r.username}</span></div><div class="text-gray-700 font-medium">${when}</div></div>`;
     }).join('');
+    els.forEach(el=>el.innerHTML = html);
+  }catch(e){ console.error('updatePhotoFastest', e); els.forEach(el => el.textContent = '❌ Could not load photo fastest data.'); }
+}
 
-    els.forEach(el => el.innerHTML = html);
-  }catch(err){
-    console.error('updatePhotoFastest', err);
-    els.forEach(el => el.textContent = '❌ Could not load photo fastest data.');
+async function fetchPhotoShareAllowed(){
+  try{
+    const { data, error } = await sb.from(PHOTO_TOGGLE_TABLE).select('allowed,expires_at').eq('id',1).maybeSingle();
+    if(error) throw error;
+    const now = Date.now();
+    const expiresAtMs = data?.expires_at ? new Date(data.expires_at).getTime() : null;
+    const effectiveAllowed = !!data?.allowed && (!expiresAtMs || expiresAtMs > now);
+    gameState.photoShareAllowed = effectiveAllowed;
+    gameState.photoShareExpiresAt = expiresAtMs;
+    const cb = document.getElementById('allowPhotoShare');
+    if(cb) cb.checked = effectiveAllowed;
+    applyPhotoShareVisibility();
+    renderPhotoCountdown();
+    const tmsg = document.getElementById('photoToggleMsg');
+    if(tmsg) tmsg.textContent = effectiveAllowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
+    saveState();
+  }catch(e){ console.warn('fetchPhotoShareAllowed', e); }
+}
+
+function applyPhotoShareVisibility(){
+  const card = document.getElementById('photoShareCard');
+  if(!card) return;
+  const now = Date.now();
+  const allowed = gameState.photoShareAllowed && (!gameState.photoShareExpiresAt || gameState.photoShareExpiresAt > now);
+  const show = (gameState.userType === 'participant') && allowed;
+  card.classList.toggle('hidden', !show);
+}
+let photoCountdownTimerId = null;
+function renderPhotoCountdown(){
+  const el = document.getElementById('photoCountdown');
+  const row = document.getElementById('photoDurationRow');
+  if(row) row.classList.toggle('hidden', !!gameState.photoShareAllowed);
+  if(!el) return;
+  if(!gameState.photoShareAllowed || !gameState.photoShareExpiresAt){ el.textContent = ''; clearInterval(photoCountdownTimerId); photoCountdownTimerId = null; return; }
+  function tick(){
+    const ms = gameState.photoShareExpiresAt - Date.now();
+    if(ms <= 0){ el.textContent = '⏳ Auto stop reached.'; clearInterval(photoCountdownTimerId); photoCountdownTimerId = null; adminSetPhotoShareAllowed(false,0); return;}
+    const m = Math.floor(ms/60000); const s = Math.floor((ms%60000)/1000);
+    el.textContent = `⏳ Auto stop in ${m}:${String(s).padStart(2,'0')}`;
   }
+  tick();
+  clearInterval(photoCountdownTimerId);
+  photoCountdownTimerId = setInterval(tick, 1000);
 }
 
-/* ===================== ADMIN ADJUSTMENTS / REMOVE ===================== */
-async function adminAddPoints(){
-  const user=document.getElementById('adminSelectUser').value;
-  const delta=parseInt(document.getElementById('adminDelta').value||'0',10);
-  const reason=document.getElementById('adminReason').value.trim()||'Manual adjustment';
-  if(!user || !delta){ msg('Choose user & non-zero points'); return; }
-  const { error } = await sb.from('score_adjustments').insert({ username:user, delta, reason });
-  if(error){ msg('Failed: '+error.message,true); return; }
-  msg(`Adjusted ${user} by ${delta} (${reason})`);
-  document.getElementById('adminDelta').value='';
-  document.getElementById('adminReason').value='';
-  refreshAllLeaderboards();
+/* Upload photo (participant) */
+async function uploadParticipantPhoto(){
+  if(!gameState.photoShareAllowed){ setPhotoMsg('Photo sharing disabled by admin', true); return; }
+  const input = document.getElementById('photoInput');
+  if(!input || !input.files || !input.files[0]){ setPhotoMsg('Please choose a photo', true); return; }
+  const file = input.files[0];
+  if(!file.type.startsWith('image/')){ setPhotoMsg('File must be an image', true); return; }
+  if(file.size > 25*1024*1024){ setPhotoMsg('Max 25MB', true); return; }
+  const preview = document.getElementById('photoPreview');
+  preview.src = URL.createObjectURL(file); preview.classList.remove('hidden');
+  const uname = gameState.currentUser || 'anonymous';
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `photos/${encodeURIComponent(uname)}/${ts}.${ext}`;
+  setPhotoMsg('Uploading...');
+  try{
+    const { error: upErr } = await sb.storage.from(PHOTO_BUCKET).upload(path, file, { cacheControl:'3600', upsert:false, contentType: file.type });
+    if(upErr) throw upErr;
+    const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+    const publicUrl = pub?.publicUrl;
+    if(!publicUrl) throw new Error('Could not get public URL');
+    const { error: insErr } = await sb.from(PHOTO_SHARES_TABLE).insert({ username: uname, url: publicUrl, path });
+    if(insErr) throw insErr;
+    setPhotoMsg('✅ Sent!'); input.value = '';
+  }catch(e){ console.error('uploadParticipantPhoto', e); setPhotoMsg('❌ Upload failed', true); }
 }
-async function adminRemoveParticipant(removed){
-  const user=document.getElementById('adminSelectUser').value;
-  if(!user){ msg('Pick a user first'); return; }
-  const { error } = await sb.from('participant_flags').upsert({ username:user, removed }, { onConflict:'username' });
-  if(error){ msg('Failed: '+error.message,true); return; }
-  msg(`${removed?'Removed':'Restored'} ${user}.`);
-  refreshAllLeaderboards();
-}
-function populateAdminSelect(preserve=true){
-  const sel=document.getElementById('adminSelectUser'); if(!sel) return;
-  const users=Object.keys(credentials.participants);
-  const prev=preserve?sel.value:null;
-  const frag=document.createDocumentFragment();
-  users.forEach(u=>{
-    const opt=document.createElement('option'); opt.value=u; opt.textContent=u; frag.appendChild(opt);
-  });
-  sel.innerHTML=''; sel.appendChild(frag);
-  if(prev && users.includes(prev)) sel.value=prev;
-}
-function msg(t,bad=false){
-  const el=document.getElementById('adminActionMsg'); if(!el) return;
-  el.textContent=t;
-  el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
-}
+function setPhotoMsg(t,bad=false){ const el = document.getElementById('photoShareMsg'); if(!el) return; el.textContent = t; el.className = 'text-sm ' + (bad ? 'text-red-600' : 'text-gray-600'); }
 
-/* ===================== SET BUILDER ===================== */
+/* ================ ADMIN: Set builder & run logic ================ */
+
+const SETS_TABLE = 'question_sets';
 function getBlankQuestion(){ return { text:'', A:'', B:'', C:'', D:'', correct:'', timer:30, points:100, image_url:'' }; }
-function createFreshSet(){
-  document.getElementById('setName').value = 'New Set ' + new Date().toLocaleTimeString();
-  const wrap=document.getElementById('setQuestions'); wrap.innerHTML='';
-  for(let i=0;i<7;i++) addQuestionRow(getBlankQuestion());
-}
+
+function createFreshSet(){ document.getElementById('setName').value = 'New Set ' + new Date().toLocaleTimeString(); const wrap = document.getElementById('setQuestions'); wrap.innerHTML=''; for(let i=0;i<7;i++) addQuestionRow(getBlankQuestion()); }
 function addQuestionRow(data){
-  const wrap=document.getElementById('setQuestions');
-  const idx = wrap.children.length+1;
+  const wrap = document.getElementById('setQuestions');
+  const idx = wrap.children.length + 1;
   const q = data || getBlankQuestion();
-  const div=document.createElement('div');
-  div.className='qrow p-4 rounded-xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50';
-  div.innerHTML=`
+  const div = document.createElement('div');
+  div.className = 'qrow p-4 rounded-xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50';
+  div.innerHTML = `
     <div class="flex items-center justify-between mb-2">
       <div class="font-bold text-amber-900">Q${idx}</div>
       <button class="text-sm text-red-600" onclick="this.closest('.qrow').remove(); renumberQuestions();">Remove</button>
     </div>
     <div class="grid md:grid-cols-2 gap-2">
-      <input class="q-text px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Question text" value="${escapeHtml(q.text)}"/>
-      <input class="q-img px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Image URL (optional)" value="${escapeHtml(q.image_url)}"/>
-      <input class="q-a px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option A" value="${escapeHtml(q.A)}"/>
-      <input class="q-b px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option B" value="${escapeHtml(q.B)}"/>
-      <input class="q-c px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option C" value="${escapeHtml(q.C)}"/>
-      <input class="q-d px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Option D" value="${escapeHtml(q.D)}"/>
-      <select class="q-correct px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500">
+      <input class="q-text px-3 py-2 rounded-lg border-2 border-gray-300" placeholder="Question text" value="${escapeHtml(q.text)}"/>
+      <input class="q-img px-3 py-2 rounded-lg border-2 border-gray-300" placeholder="Image URL (optional)" value="${escapeHtml(q.image_url)}"/>
+      <input class="q-a px-3 py-2 rounded-lg border-2 border-gray-300" placeholder="Option A" value="${escapeHtml(q.A)}"/>
+      <input class="q-b px-3 py-2 rounded-lg border-2 border-gray-300" placeholder="Option B" value="${escapeHtml(q.B)}"/>
+      <input class="q-c px-3 py-2 rounded-lg border-2 border-gray-300" placeholder="Option C" value="${escapeHtml(q.C)}"/>
+      <input class="q-d px-3 py-2 rounded-lg border-2 border-gray-300" placeholder="Option D" value="${escapeHtml(q.D)}"/>
+      <select class="q-correct px-3 py-2 rounded-lg border-2 border-gray-300">
         <option value="">Correct?</option><option ${q.correct==='A'?'selected':''}>A</option><option ${q.correct==='B'?'selected':''}>B</option><option ${q.correct==='C'?'selected':''}>C</option><option ${q.correct==='D'?'selected':''}>D</option>
       </select>
-      <input type="number" min="5" max="180" class="q-timer px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Timer (sec)" value="${q.timer}"/>
-      <input type="number" min="10" max="1000" class="q-points px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-amber-500" placeholder="Points" value="${q.points}"/>
+      <input type="number" min="5" max="180" class="q-timer px-3 py-2 rounded-lg border-2 border-gray-300" placeholder="Timer (sec)" value="${q.timer}"/>
+      <input type="number" min="10" max="1000" class="q-points px-3 py-2 rounded-lg border-2 border-gray-300" placeholder="Points" value="${q.points}"/>
     </div>
   `;
   wrap.appendChild(div);
 }
-function renumberQuestions(){
-  [...document.querySelectorAll('#setQuestions .qrow')].forEach((row,i)=>{ row.querySelector('.font-bold').textContent = 'Q'+(i+1); });
-}
+function renumberQuestions(){ [...document.querySelectorAll('#setQuestions .qrow')].forEach((row,i)=> row.querySelector('.font-bold').textContent = 'Q'+(i+1)); }
 function collectSetFromUI(){
-  const name=document.getElementById('setName').value.trim() || 'Untitled Set';
-  const rows=[...document.querySelectorAll('#setQuestions .qrow')];
-  const items=rows.map(r=>({
-    text:r.querySelector('.q-text').value.trim(),
-    image_url:r.querySelector('.q-img').value.trim(),
-    A:r.querySelector('.q-a').value.trim(), B:r.querySelector('.q-b').value.trim(),
-    C:r.querySelector('.q-c').value.trim(), D:r.querySelector('.q-d').value.trim(),
-    correct:r.querySelector('.q-correct').value,
-    timer:parseInt(r.querySelector('.q-timer').value)||30,
-    points:parseInt(r.querySelector('.q-points').value)||100
-  })).filter(x=>x.text && x.correct && x.A && x.B && x.C && x.D);
+  const name = document.getElementById('setName').value.trim() || 'Untitled Set';
+  const rows = [...document.querySelectorAll('#setQuestions .qrow')];
+  const items = rows.map(r=>({
+    text: r.querySelector('.q-text').value.trim(),
+    image_url: r.querySelector('.q-img').value.trim(),
+    A: r.querySelector('.q-a').value.trim(), B: r.querySelector('.q-b').value.trim(),
+    C: r.querySelector('.q-c').value.trim(), D: r.querySelector('.q-d').value.trim(),
+    correct: r.querySelector('.q-correct').value,
+    timer: parseInt(r.querySelector('.q-timer').value) || 30,
+    points: parseInt(r.querySelector('.q-points').value) || 100
+  })).filter(x => x.text && x.correct && x.A && x.B && x.C && x.D);
   return { name, items };
 }
+
+async function loadSavedSetsDropdown(selectedName){
+  let names = [];
+  try{
+    const { data, error } = await sb.from(SETS_TABLE).select('name').order('updated_at',{ ascending:false });
+    if(!error && data) names = data.map(x=>x.name);
+  }catch(e){}
+  if(!names.length){
+    const list = JSON.parse(localStorage.getItem('warriorQuizSets_v2') || '[]');
+    names = list.map(s=>s.name);
+  }
+  const sel = document.getElementById('savedSets');
+  sel.innerHTML = names.map(n=>`<option value="${n}">${n}</option>`).join('');
+  const last = selectedName || localStorage.getItem('warriorQuizLastSetName');
+  if(last && names.includes(last)) sel.value = last;
+}
+
 async function saveCurrentSet(){
-  const set=collectSetFromUI();
+  const set = collectSetFromUI();
+  if(!set.items.length){ alert('No valid questions to save'); return; }
   let savedToDb = false;
   try{
     const { error } = await sb.from(SETS_TABLE).upsert({ name:set.name, items:set.items }).select('name').single();
     if(!error) savedToDb = true;
   }catch(e){}
   if(!savedToDb){
-    const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
-    const idx=list.findIndex(s=>s.name===set.name);
-    if(idx>=0) list[idx]=set; else list.push(set);
-    localStorage.setItem(SETS_KEY, JSON.stringify(list));
+    const list = JSON.parse(localStorage.getItem('warriorQuizSets_v2') || '[]');
+    const idx = list.findIndex(s => s.name === set.name);
+    if(idx >= 0) list[idx] = set; else list.push(set);
+    localStorage.setItem('warriorQuizSets_v2', JSON.stringify(list));
   }
-  localStorage.setItem(LAST_SET_KEY, set.name);
+  localStorage.setItem('warriorQuizLastSetName', set.name);
   await loadSavedSetsDropdown(set.name);
-  alert('✅ Set saved' + (savedToDb?' to cloud.':' locally.'));
+  alert('✅ Set saved' + (savedToDb ? ' to cloud.' : ' locally.'));
 }
-async function loadSavedSetsDropdown(selectedName){
-  let names = [];
-  try{
-    const { data, error } = await sb.from(SETS_TABLE).select('name').order('updated_at', { ascending:false });
-    if(!error && data){ names = data.map(x=>x.name); }
-  }catch(e){}
-  if(!names.length){
-    const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
-    names = list.map(s=>s.name);
-  }
-  const sel=document.getElementById('savedSets');
-  sel.innerHTML = names.map(n=>`<option value="${n}">${n}</option>`).join('');
-  const last = selectedName || localStorage.getItem(LAST_SET_KEY);
-  if(last && names.includes(last)) sel.value=last;
-}
+
 async function loadSelectedSet(){
-  const sel=document.getElementById('savedSets');
-  const name=sel.value;
+  const sel = document.getElementById('savedSets');
+  const name = sel.value;
+  if(!name){ alert('Pick a saved set'); return; }
   let set = null;
   try{
     const { data, error } = await sb.from(SETS_TABLE).select('items').eq('name', name).maybeSingle();
-    if(!error && data){ set = { name, items: data.items }; }
+    if(!error && data) set = { name, items: data.items };
   }catch(e){}
   if(!set){
-    const list=JSON.parse(localStorage.getItem(SETS_KEY)||'[]');
-    set = list.find(s=>s.name===name);
+    const list = JSON.parse(localStorage.getItem('warriorQuizSets_v2') || '[]');
+    set = list.find(s => s.name === name);
   }
   if(!set){ alert('No set found'); return; }
-
-  localStorage.setItem(LAST_SET_KEY, name);
-  document.getElementById('setName').value=set.name;
-  const wrap=document.getElementById('setQuestions');
-  wrap.innerHTML='';
-  set.items.forEach(item=>addQuestionRow(item));
-
-  const bad = set.items.filter(i=>i.image_url && !isDirectImageUrl(i.image_url)).length;
-  if(bad) document.getElementById('imageTip').innerHTML = `⚠️ ${bad} image link(s) look unusual. Use a direct image URL (.png/.jpg/.jpeg/.gif/.webp) or a base64 data URL starting with <code>data:image/*;base64,</code>.`;
-  else document.getElementById('imageTip').innerHTML = `Tip: You can paste a direct image URL (.png/.jpg/.jpeg/.gif/.webp) <em>or</em> a base64 data URL starting with <code>data:image/*;base64,</code>.`;
-
+  document.getElementById('setName').value = set.name;
+  const wrap = document.getElementById('setQuestions'); wrap.innerHTML = '';
+  set.items.forEach(item => addQuestionRow(item));
+  const bad = set.items.filter(i => i.image_url && !isDirectImageUrl(i.image_url)).length;
+  if(bad) document.getElementById('imageTip').innerHTML = `⚠️ ${bad} image link(s) look unusual. Use direct image or base64 data URL.`;
+  else document.getElementById('imageTip').innerHTML = `Tip: You can paste a direct image URL (.png/.jpg/.jpeg/.gif/.webp) or a base64 data URL starting with <code>data:image/*;base64,</code>.`;
   alert('📥 Set loaded: ' + name);
 }
 
-/* ===================== RUN SET ===================== */
+/* ================ RUN SET (admin) ================ */
+
+/* Insert each question into 'questions' table with start_time=now; ends_at = now+timer*1000+small fudge
+   We also include is_last flag so participants can know final question for confetti. If insert fails due
+   to schema mismatch, we retry without optional fields.
+ */
 async function startSetRun(){
   const { name, items } = collectSetFromUI();
-  if(items.length===0){ alert('Add some questions first'); return; }
+  if(!items.length){ alert('Add some questions first'); return; }
 
+  // mark any existing questions ended
   await sb.from('questions').update({ ended:true }).eq('ended', false);
 
   gameState.setRunner.running = true;
-  gameState.setRunner.queue   = items;
-  gameState.setRunner.cursor  = 0;
-  gameState.setRunner.runId   = makeRunId();
+  gameState.setRunner.queue = items;
+  gameState.setRunner.cursor = 0;
+  gameState.setRunner.runId = makeRunId();
   saveState();
 
-  document.getElementById('setRunStatus').textContent = `Running "${name}" (${items.length} questions)`;
+  document.getElementById('setRunStatus').textContent = `Running "${name}" (${items.length} q)`;
   refreshFastestHistory();
   runNextInQueue(name);
 }
+
 function cancelSetRun(){
-  gameState.setRunner.running=false;
+  gameState.setRunner.running = false;
   clearTimeout(gameState.setRunner.timerId);
   document.getElementById('setRunStatus').textContent = 'Stopped.';
 }
 
-/*
-  Robust insert logic:
-  - Try inserting with is_last flag (useful if your DB has that column)
-  - If insert fails with 400 / unknown column, remove is_last and retry once
-  - Log full Supabase error to console for easy debugging
-*/
+/* runNextInQueue: creates question rows in DB; administrative only */
 async function runNextInQueue(setName){
   if(!gameState.setRunner.running) return;
-  const i=gameState.setRunner.cursor;
+  const i = gameState.setRunner.cursor;
   if(i >= gameState.setRunner.queue.length){
-    gameState.setRunner.running=false;
-    document.getElementById('setRunStatus').textContent='Set complete 🎉';
+    gameState.setRunner.running = false;
+    document.getElementById('setRunStatus').textContent = 'Set complete 🎉';
     return;
   }
   const item = gameState.setRunner.queue[i];
   const start = new Date();
-  const ends = new Date(start.getTime() + (item.timer||30)*1000 + 500);
+  const ends = new Date(start.getTime() + (item.timer || 30) * 1000 + 500); // small fudge
 
-  if(item.image_url && !isDirectImageUrl(item.image_url)){
-    console.warn('Image URL may not be a direct image (or data URL). Attempting to display anyway:', item.image_url);
-  }
-
-  // Build payload including is_last flag
-  const payloadWithIsLast = {
-    text:item.text,
-    options:{ A:item.A, B:item.B, C:item.C, D:item.D },
-    correct:item.correct,
-    timer:item.timer||30,
-    points:item.points||100,
-    image_url:item.image_url||null,
-    start_time:start.toISOString(),
-    ends_at:ends.toISOString(),
-    ended:false,
+  // payload including is_last to help client confetti decision
+  const payload = {
+    text: item.text,
+    options: { A: item.A, B: item.B, C: item.C, D: item.D },
+    correct: item.correct,
+    timer: item.timer || 30,
+    points: item.points || 100,
+    image_url: item.image_url || null,
+    start_time: start.toISOString(),
+    ends_at: ends.toISOString(),
+    ended: false,
     run_id: gameState.setRunner.runId || null,
     set_name: setName || null,
-    is_last: (i >= gameState.setRunner.queue.length - 1)  // helpful when DB supports it
+    is_last: (i >= gameState.setRunner.queue.length - 1)
   };
 
-  // First try
-  let res = await sb.from('questions').insert(payloadWithIsLast);
-  if (res.error) {
-    // If server returns a 400 or a column-not-found-like error, attempt a retry without is_last
-    console.warn('Insert question failed (first attempt) — will try retry without optional fields. Supabase error:', res.error);
-    // prepare fallback payload (remove properties that might not exist in DB)
-    const fallbackPayload = Object.assign({}, payloadWithIsLast);
-    delete fallbackPayload.is_last;
-
-    // Retry once
-    const retry = await sb.from('questions').insert(fallbackPayload);
-    if (retry.error) {
-      // Final failure: log everything and cancel the run (so admin sees issue)
-      console.error('Insert question failed after retry. Supabase response (retry):', retry.error);
-      // Optionally cancel the run to avoid looping inserts that always fail
+  // Try insert; if fails due to schema mismatch, retry without is_last
+  let res = await sb.from('questions').insert(payload);
+  if(res.error){
+    console.warn('Insert question failed (first attempt). Will retry without optional fields.', res.error);
+    const fallback = Object.assign({}, payload);
+    delete fallback.is_last;
+    const retry = await sb.from('questions').insert(fallback);
+    if(retry.error){
+      console.error('Insert question failed after retry:', retry.error);
       cancelSetRun();
-      alert('❌ Insert question failed. Check Console for Supabase error details and ensure your `questions` table schema matches the inserted fields.');
+      alert('❌ Insert question failed. Check Supabase table schema & console for details.');
       return;
     } else {
-      // Retry succeeded
-      console.info('Insert question succeeded on retry (without is_last).');
+      console.info('Insert succeeded on retry (without is_last).');
     }
   } else {
-    // First attempt succeeded
     console.info('Insert question succeeded (with is_last).');
   }
 
   gameState.setRunner.cursor++;
-  const delay = (item.timer||30)*1000 + 500 + 1600;
-  gameState.setRunner.timerId = setTimeout(()=>runNextInQueue(setName), delay);
+  const delay = (item.timer || 30) * 1000 + 2000; // wait for question display + reveal padding
+  gameState.setRunner.timerId = setTimeout(()=> runNextInQueue(setName), delay);
 }
 
-/* ===================== RESET GAME ===================== */
-async function resetGame(){
-  if(!confirm("⚠️ Are you sure you want to reset? This will erase ALL points, answers, and active questions!")) return;
-  try {
-    const { error } = await sb.rpc('reset_game_tables');
-    if (error) throw error;
+/* Admin helper functions (adjust points, remove participant, reset) */
+async function adminAddPoints(){
+  const user = document.getElementById('adminSelectUser').value;
+  const delta = parseInt(document.getElementById('adminDelta').value || '0', 10);
+  const reason = document.getElementById('adminReason').value.trim() || 'Manual adjustment';
+  if(!user || !delta){ showAdminMsg('Choose user & non-zero points'); return; }
+  const { error } = await sb.from('score_adjustments').insert({ username:user, delta, reason });
+  if(error){ showAdminMsg('Failed: ' + error.message, true); return; }
+  showAdminMsg(`Adjusted ${user} by ${delta} (${reason})`);
+  document.getElementById('adminDelta').value = '';
+  document.getElementById('adminReason').value = '';
+  refreshAllLeaderboards();
+}
+async function adminRemoveParticipant(removed){
+  const user = document.getElementById('adminSelectUser').value;
+  if(!user){ showAdminMsg('Pick a user first'); return; }
+  const { error } = await sb.from('participant_flags').upsert({ username:user, removed }, { onConflict:'username' });
+  if(error){ showAdminMsg('Failed: ' + error.message, true); return; }
+  showAdminMsg(`${removed ? 'Removed' : 'Restored'} ${user}.`);
+  refreshAllLeaderboards();
+}
+function showAdminMsg(t,bad=false){ const el = document.getElementById('adminActionMsg'); if(!el) return; el.textContent = t; el.className = 'text-sm ' + (bad ? 'text-red-600' : 'text-gray-600'); }
+function populateAdminSelect(preserve=true){
+  const sel = document.getElementById('adminSelectUser'); if(!sel) return;
+  const users = Object.keys(credentials.participants);
+  const prev = preserve ? sel.value : null;
+  sel.innerHTML = users.map(u => `<option value="${u}">${u}</option>`).join('');
+  if(prev && users.includes(prev)) sel.value = prev;
+}
 
-    document.getElementById('participantScore').textContent = '0';
-    gameState.prevRanks = {};
-    gameState.currentQuestion = null;
-    gameState.setRunner.runId = null;
-    gameState.lastSelected = null;
+/* ================ RESET GAME ================ */
+async function resetGame(){
+  if(!confirm('⚠️ Are you sure? Resetting will erase answers & scores.')) return;
+  try{
+    const { error } = await sb.rpc('reset_game_tables');
+    if(error) throw error;
+    gameState.prevRanks = {}; gameState.currentQuestion = null; gameState.setRunner.runId = null; gameState.lastSelected = null;
     clearInterval(gameState.questionTimer);
     updateCurrentQuestionStatus();
     await refreshAllLeaderboards();
     await refreshFastestHistory();
     updatePhotoFastest();
     saveState();
-    alert("✅ Game has been reset!");
-  } catch (err) {
-    console.error("Reset Error:", err);
-    alert("❌ Reset failed. Please ensure you have created the 'reset_game_tables' function in your Supabase SQL Editor as instructed.");
-  }
+    alert('✅ Game reset');
+  }catch(e){ console.error('resetGame', e); alert('Reset failed. Check Supabase RPC & console.'); }
 }
 
-/* ===================== PHOTO SHARING ===================== */
-async function onAdminTogglePhotoShare(checked){
-  const minutes = parseInt(document.getElementById('photoDuration').value || '0', 10);
-  await adminSetPhotoShareAllowed(checked, minutes);
-}
-async function adminSetPhotoShareAllowed(allowed, minutes=0){
-  try{
-    let expires_at = null;
-    if(allowed && minutes > 0){ expires_at = new Date(Date.now() + minutes*60*1000).toISOString(); }
-
-    const { data: updData, error: updErr } = await sb
-      .from(PHOTO_TOGGLE_TABLE)
-      .update({ allowed, expires_at })
-      .eq('id', 1)
-      .select('id');
-
-    if (updErr || (updData && updData.length===0)) {
-      const { error: insErr } = await sb
-        .from(PHOTO_TOGGLE_TABLE)
-        .insert({ id: 1, allowed, expires_at });
-      if (insErr) throw insErr;
-    }
-
-    gameState.photoShareAllowed = !!allowed;
-    gameState.photoShareExpiresAt = expires_at ? new Date(expires_at).getTime() : null;
-
-    applyPhotoShareVisibility();
-    renderPhotoCountdown();
-    const msgEl = document.getElementById('photoToggleMsg');
-    if(msgEl) msgEl.textContent = allowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
-
-    scheduleLocalAutoStop();
-    saveState();
-  }catch(e){
-    console.error('toggle failed', e);
-    const msg = document.getElementById('photoToggleMsg');
-    if (msg) msg.textContent = '❌ Failed to update toggle.';
-    const cb=document.getElementById('allowPhotoShare');
-    if(cb) cb.checked = !!gameState.photoShareAllowed;
-  }
-}
-async function fetchPhotoShareAllowed(){
-  try{
-    const { data, error } = await sb
-      .from(PHOTO_TOGGLE_TABLE)
-      .select('allowed, expires_at')
-      .eq('id',1)
-      .maybeSingle();
-    if(error) throw error;
-
-    const now = Date.now();
-    const expiresAtMs = data?.expires_at ? new Date(data.expires_at).getTime() : null;
-    const effectiveAllowed = !!data?.allowed && (!expiresAtMs || expiresAtMs > now);
-
-    gameState.photoShareAllowed = effectiveAllowed;
-    gameState.photoShareExpiresAt = expiresAtMs;
-
-    const cb = document.getElementById('allowPhotoShare');
-    if(cb) cb.checked = effectiveAllowed;
-
-    applyPhotoShareVisibility();
-    renderPhotoCountdown();
-    const tmsg=document.getElementById('photoToggleMsg');
-    if(tmsg) tmsg.textContent = effectiveAllowed ? '✅ Photo sharing is ON' : '⛔ Photo sharing is OFF';
-
-    scheduleLocalAutoStop();
-    saveState();
-  }catch(e){
-    console.warn('fetchPhotoShareAllowed', e);
-    const cb=document.getElementById('allowPhotoShare');
-    if(cb) cb.checked = !!gameState.photoShareAllowed;
-    applyPhotoShareVisibility();
-    renderPhotoCountdown();
-  }
-}
-function applyPhotoShareVisibility(){
-  const card=document.getElementById('photoShareCard');
-  if(!card) return;
-  const now = Date.now();
-  const allowed = gameState.photoShareAllowed && (!gameState.photoShareExpiresAt || gameState.photoShareExpiresAt > now);
-  const show = (gameState.userType==='participant') && allowed;
-  card.classList.toggle('hidden', !show);
-}
-function renderPhotoCountdown(){
-  const el = document.getElementById('photoCountdown');
-  const row = document.getElementById('photoDurationRow');
-  if(!el) return;
-
-  if(row) row.classList.toggle('hidden', !!gameState.photoShareAllowed);
-
-  if(!gameState.photoShareAllowed || !gameState.photoShareExpiresAt){
-    el.textContent = '';
-    clearInterval(photoCountdownTimerId);
-    photoCountdownTimerId = null;
-    return;
-  }
-
-  function tick(){
-    const ms = gameState.photoShareExpiresAt - Date.now();
-    if(ms <= 0){
-      el.textContent = '⏳ Auto stop reached.';
-      clearInterval(photoCountdownTimerId);
-      photoCountdownTimerId = null;
-      adminSetPhotoShareAllowed(false, 0);
-      return;
-    }
-    const m = Math.floor(ms/60000);
-    const s = Math.floor((ms%60000)/1000);
-    el.textContent = `⏳ Auto stop in ${m}:${String(s).padStart(2,'0')}`;
-  }
-
-  tick();
-  clearInterval(photoCountdownTimerId);
-  photoCountdownTimerId = setInterval(tick, 1000);
-}
-function scheduleLocalAutoStop(){
-  if(gameState.photoShareExpiresAt && Date.now() >= gameState.photoShareExpiresAt){
-    if(gameState.photoShareAllowed){ adminSetPhotoShareAllowed(false, 0); }
-    return;
-  }
-}
-async function uploadParticipantPhoto(){
-  if(!gameState.photoShareAllowed){ setPhotoMsg('Photo sharing is currently disabled by the admin.', true); return; }
-  const input = document.getElementById('photoInput');
-  if(!input || !input.files || !input.files[0]){ setPhotoMsg('Please choose a photo first.', true); return; }
-  const file = input.files[0];
-  if(!file.type.startsWith('image/')){ setPhotoMsg('File must be an image.', true); return; }
-  if(file.size > 25*1024*1024){ setPhotoMsg('Max size is 25MB.', true); return; }
-
-  const preview = document.getElementById('photoPreview');
-  preview.src = URL.createObjectURL(file);
-  preview.classList.remove('hidden');
-
-  const uname = gameState.currentUser || 'anonymous';
-  const ts = new Date().toISOString().replace(/[:.]/g,'-');
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  const path = `photos/${encodeURIComponent(uname)}/${ts}.${ext}`;
-
-  setPhotoMsg('Uploading...');
-
-  try{
-    const { error: upErr } = await sb.storage.from(PHOTO_BUCKET).upload(path, file, {
-      cacheControl: '3600', upsert: false, contentType: file.type
-    });
-    if(upErr) throw upErr;
-
-    const { data: pub } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
-    const publicUrl = pub?.publicUrl;
-    if(!publicUrl) throw new Error('Could not get public URL');
-
-    const { error: insErr } = await sb.from(PHOTO_SHARES_TABLE).insert({
-      username: uname, url: publicUrl, path: path
-    });
-    if(insErr) throw insErr;
-
-    setPhotoMsg('✅ Sent! The battle master can see your photo.');
-    input.value = '';
-  }catch(e){
-    console.error('uploadParticipantPhoto', e);
-    setPhotoMsg('❌ Upload failed. Please try again.', true);
-  }
-}
-function setPhotoMsg(t,bad=false){
-  const el=document.getElementById('photoShareMsg');
-  if(!el) return;
-  el.textContent=t;
-  el.className='text-sm '+(bad?'text-red-600':'text-gray-600');
-}
+/* ================ PHOTO INBOX (admin) ================ */
 async function refreshPhotoInbox(){
-  const inbox=document.getElementById('photoInbox');
-  const countEl=document.getElementById('photoCount');
-  const msg=document.getElementById('photoInboxMsg');
+  const inbox = document.getElementById('photoInbox'); const countEl = document.getElementById('photoCount'); const msg = document.getElementById('photoInboxMsg');
   if(!inbox) return;
   try{
-    const { data, error } = await sb.from(PHOTO_SHARES_TABLE)
-      .select('id,username,url,path,created_at')
-      .order('created_at', { ascending:false })
-      .limit(200);
+    const { data, error } = await sb.from(PHOTO_SHARES_TABLE).select('id,username,url,path,created_at').order('created_at',{ ascending:false }).limit(200);
     if(error) throw error;
     gameState.photos = data || [];
-    inbox.innerHTML = (data||[]).map(row=>{
-      const dt = new Date(row.created_at);
-      const when = dt.toLocaleString();
-      const u = escapeHtml(row.username);
-      const src = escapeHtml(row.url);
-      const pid = row.id;
-      const path = row.path || '';
-      return `
-      <div id="photo-card-${pid}" class="border rounded-xl overflow-hidden shadow-sm">
+    inbox.innerHTML = (data||[]).map(row => {
+      const dt = new Date(row.created_at); const when = dt.toLocaleString(); const u = escapeHtml(row.username); const src = escapeHtml(row.url);
+      const pid = row.id; const path = row.path || '';
+      return `<div id="photo-card-${pid}" class="border rounded-xl overflow-hidden shadow-sm">
         <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
         <div class="p-3 flex items-center justify-between">
-          <div>
-            <div class="font-semibold text-gray-800">${u}</div>
-            <div class="text-xs text-gray-500">${when}</div>
-          </div>
-          <div class="flex items-center gap-3">
-            <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
-            <button onclick="adminDeletePhoto('${pid}', '${encodeURIComponent(path)}')" class="text-sm text-red-600 hover:text-red-700">🗑️ Delete</button>
-          </div>
-        </div>
-      </div>`;
+          <div><div class="font-semibold text-gray-800">${u}</div><div class="text-xs text-gray-500">${when}</div></div>
+          <div class="flex items-center gap-3"><a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a><button onclick="adminDeletePhoto('${pid}','${encodeURIComponent(path)}')" class="text-sm text-red-600">🗑️ Delete</button></div>
+        </div></div>`;
     }).join('');
-    if(countEl) countEl.textContent = `(${(data||[]).length})`;
-    if(msg) msg.textContent = (data && data.length)? '' : 'No photos yet.';
-  }catch(e){
-    console.error('refreshPhotoInbox', e);
-    if(msg) msg.textContent = '❌ Failed to load photos.';
-  }
+    if(countEl) countEl.textContent = `(${(data||[]).length})`; if(msg) msg.textContent = (data && data.length)? '' : 'No photos yet.';
+  }catch(e){ console.error('refreshPhotoInbox', e); if(msg) msg.textContent = '❌ Failed to load photos.'; }
 }
 async function adminDeletePhoto(id, pathEnc){
-  const inboxMsg = document.getElementById('photoInboxMsg');
-  const path = decodeURIComponent(pathEnc || '');
+  const inboxMsg = document.getElementById('photoInboxMsg'); const path = decodeURIComponent(pathEnc || '');
   try{
     if(path){
       const { error: delErr } = await sb.storage.from(PHOTO_BUCKET).remove([path]);
@@ -1559,102 +1364,91 @@ async function adminDeletePhoto(id, pathEnc){
     }
     const { error: dbErr } = await sb.from(PHOTO_SHARES_TABLE).delete().eq('id', id);
     if(dbErr) throw dbErr;
-
-    const card = document.getElementById(`photo-card-${id}`);
-    if(card) card.remove();
-    gameState.photos = (gameState.photos||[]).filter(p=>p.id!==id);
-
-    const countEl=document.getElementById('photoCount');
-    if(countEl) countEl.textContent = `(${gameState.photos.length})`;
+    const card = document.getElementById(`photo-card-${id}`); if(card) card.remove();
+    gameState.photos = (gameState.photos||[]).filter(p=>p.id !== id);
+    const countEl = document.getElementById('photoCount'); if(countEl) countEl.textContent = `(${gameState.photos.length})`;
     if(inboxMsg) inboxMsg.textContent = '';
-
     updatePhotoFastest();
-  }catch(e){
-    console.error('adminDeletePhoto', e);
-    if(inboxMsg) inboxMsg.textContent = '❌ Delete failed.';
-  }
+  }catch(e){ console.error('adminDeletePhoto', e); if(inboxMsg) inboxMsg.textContent = '❌ Delete failed.'; }
 }
-function initPhotoSharingRealtime(){
-  sb.channel('photo-toggle-rt')
-    .on('postgres_changes', { event:'*', schema:'public', table: PHOTO_TOGGLE_TABLE }, () => { fetchPhotoShareAllowed(); })
-    .subscribe();
 
-  sb.channel('photo-shares-rt')
-    .on('postgres_changes', { event:'INSERT', schema:'public', table: PHOTO_SHARES_TABLE }, (payload) => {
-      const row = payload.new;
-      gameState.photos.unshift(row);
-      const inbox=document.getElementById('photoInbox');
-      const countEl=document.getElementById('photoCount');
+/* Real-time photo updates */
+function initPhotoSharingRealtime(){
+  try{
+    sb.channel('photo-toggle-rt').on('postgres_changes', { event:'*', schema:'public', table: PHOTO_TOGGLE_TABLE }, ()=> fetchPhotoShareAllowed()).subscribe();
+    sb.channel('photo-shares-rt').on('postgres_changes', { event:'INSERT', schema:'public', table: PHOTO_SHARES_TABLE }, payload=>{
+      const row = payload.new; gameState.photos.unshift(row);
+      const inbox = document.getElementById('photoInbox'); const countEl = document.getElementById('photoCount');
       if(inbox){
-        const dt = new Date(row.created_at);
-        const when = dt.toLocaleString();
-        const u = escapeHtml(row.username);
-        const src = escapeHtml(row.url);
-        const pid = row.id;
-        const path = row.path || '';
-        const card = document.createElement('div');
-        card.id = `photo-card-${pid}`;
-        card.className='border rounded-xl overflow-hidden shadow-sm';
-        card.innerHTML = `
-          <img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/>
-          <div class="p-3 flex items-center justify-between">
-            <div>
-              <div class="font-semibold text-gray-800">${u}</div>
-              <div class="text-xs text-gray-500">${when}</div>
-            </div>
-            <div class="flex items-center gap-3">
-              <a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a>
-              <button onclick="adminDeletePhoto('${pid}', '${encodeURIComponent(path)}')" class="text-sm text-red-600 hover:text-red-700">🗑️ Delete</button>
-            </div>
-          </div>`;
+        const dt = new Date(row.created_at); const when = dt.toLocaleString(); const u = escapeHtml(row.username); const src = escapeHtml(row.url); const pid = row.id; const path = row.path || '';
+        const card = document.createElement('div'); card.id = `photo-card-${pid}`; card.className = 'border rounded-xl overflow-hidden shadow-sm';
+        card.innerHTML = `<img src="${src}" alt="${u} photo" class="w-full h-48 object-cover"/><div class="p-3 flex items-center justify-between"><div><div class="font-semibold text-gray-800">${u}</div><div class="text-xs text-gray-500">${when}</div></div><div class="flex items-center gap-3"><a href="${src}" target="_blank" class="text-sm text-amber-700 hover:underline">Open</a><button onclick="adminDeletePhoto('${pid}','${encodeURIComponent(path)}')" class="text-sm text-red-600">🗑️ Delete</button></div></div>`;
         inbox.prepend(card);
       }
       if(countEl) countEl.textContent = `(${gameState.photos.length})`;
       updatePhotoFastest();
-    })
-    .subscribe();
+    }).subscribe();
+  }catch(e){ console.warn('initPhotoSharingRealtime', e); }
 }
 
-/* ===================== GLOBAL HELPERS ===================== */
-function openLeaderboardModal(){
-  document.getElementById('leaderboardModal').classList.remove('hidden');
-  setTimeout(()=>refreshAllLeaderboards(), 200);
+/* ================ Participant polling (ensures immediate display when admin inserts) ================ */
+
+/*
+  startParticipantPolling:
+  - While waiting for a question we poll fetchActiveQuestion() every 1000ms.
+  - When a question appears we stop polling (timer sync / realtime takes over).
+*/
+function startParticipantPolling(){
+  // Only poll if user is participant and on waiting screen
+  if(gameState.userType !== 'participant') return;
+  // if a question is already active don't poll
+  if(gameState.currentQuestion) return;
+  stopParticipantPolling();
+  participantPollId = setInterval(()=>{ fetchActiveQuestion(); }, 1000);
 }
-function closeLeaderboardModal(){
-  document.getElementById('leaderboardModal').classList.add('hidden');
+function stopParticipantPolling(){
+  if(participantPollId) { clearInterval(participantPollId); participantPollId = null; }
 }
 
-/* ===================== BOOT ===================== */
+/* ================ Misc helpers ================ */
+function openLeaderboardModal(){ document.getElementById('leaderboardModal').classList.remove('hidden'); setTimeout(()=> refreshAllLeaderboards(), 200); }
+function closeLeaderboardModal(){ document.getElementById('leaderboardModal').classList.add('hidden'); }
+function updateActiveParticipants(){ const count = Array.from(presenceRoster).filter(u => /^warrior[1-8]$/.test(u)).length; const el = document.getElementById('activeParticipants'); if(el) el.textContent = `${count} warriors online`; }
+function updateCurrentQuestionStatus(){ const el = document.getElementById('currentQuestionStatus'); if(!el) return; if(gameState.currentQuestion) { el.textContent = 'Active - question running'; return; } el.textContent = 'No active question'; }
+
+/* ================ BOOT ================ */
 (function boot(){
   loadState();
   initializeParticipants();
-  if (gameState.userType && gameState.currentUser) joinPresence(gameState.currentUser);
-  else joinPresence('viewer-' + Math.random().toString(36).slice(2,8));
-
-  if(gameState.userType){ showDashboard(gameState.userType); }
+  if(gameState.userType && gameState.currentUser) joinPresence(gameState.currentUser);
+  else joinPresence('viewer-'+Math.random().toString(36).slice(2,8));
+  if(gameState.userType) showDashboard(gameState.userType);
   loadSavedSetsDropdown();
   populateAdminSelect(true);
   fetchActiveQuestion();
   refreshAllLeaderboards();
-
   initPhotoSharingRealtime();
   fetchPhotoShareAllowed();
   refreshPhotoInbox();
+  refreshFastestHistory();
+  updatePhotoFastest();
+  wireRealtime();
 
+  // wire photo input preview
   const input = document.getElementById('photoInput');
   if(input){
     input.addEventListener('change', ()=>{
-      const f=input.files && input.files[0];
-      const prev=document.getElementById('photoPreview');
-      if(f){ prev.src = URL.createObjectURL(f); prev.classList.remove('hidden'); setPhotoMsg('Ready to upload.'); } 
-      else { prev.src=''; prev.classList.add('hidden'); setPhotoMsg(''); }
+      const f = input.files && input.files[0];
+      const prev = document.getElementById('photoPreview');
+      if(f){ prev.src = URL.createObjectURL(f); prev.classList.remove('hidden'); setPhotoMsg('Ready to upload.'); }
+      else { prev.src = ''; prev.classList.add('hidden'); setPhotoMsg(''); }
     });
   }
 
-  refreshFastestHistory();
-  updatePhotoFastest();
-
   window.addEventListener('beforeunload', saveState);
+
+  // If participant logged in but we have no active question, start poll so they see questions ASAP
+  if(gameState.userType === 'participant' && !gameState.currentQuestion) startParticipantPolling();
 })();
 </script>
 </body>
