@@ -20,6 +20,10 @@
     .ff-table th, .ff-table td { white-space: nowrap; }
     .ff-cell { min-width: 64px; text-align: center; }
     .ff-badge { padding: 0.15rem 0.4rem; border-radius: 9999px; font-weight: 700; font-size: 0.75rem; display:inline-block; }
+    /* Visual for selected option (dark blue) */
+    .option-selected { background-color: #1e3a8a !important; /* tailwind 'bg-blue-800' */ box-shadow: 0 6px 18px rgba(30,58,138,0.18); }
+    /* Force white text on selected */
+    .option-selected, .option-selected * { color: #fff !important; }
   </style>
 </head>
 <body class="warrior-bg ancient-pattern min-h-screen">
@@ -443,8 +447,23 @@ function wireRealtime(){
           break;
         case 'questions': {
           const q = payload.new;
-          if (q && !q.ended && new Date(q.ends_at) > new Date()) setCurrentQuestion(q);
-          else clearQuestionUI();
+          // tolerate small clock skew so freshly inserted question shows to participants immediately
+          if (q && !q.ended) {
+            try {
+              const endsAtMs = new Date(q.ends_at).getTime();
+              if (endsAtMs > (Date.now() - 1000)) {
+                setCurrentQuestion(q);
+              } else {
+                clearQuestionUI();
+              }
+            } catch (e) {
+              // fallback to original behaviour
+              if (q && !q.ended && new Date(q.ends_at) > new Date()) setCurrentQuestion(q);
+              else clearQuestionUI();
+            }
+          } else {
+            clearQuestionUI();
+          }
           refreshFastestHistory();
           break;
         }
@@ -605,12 +624,21 @@ function displayQuestionToParticipants(){
     btn.dataset.key=key;
     btn.className='bg-gradient-to-r from-amber-400 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 text-left';
     btn.innerHTML=`<span class="text-xl font-bold">${key}.</span> ${val}`;
-    btn.onclick=()=>submitAnswer(key);
+    btn.onclick=()=>submitAnswer(key, btn);
     optionsContainer.appendChild(btn);
   });
 
+  // if already selected by this user during this question (reconnect) show selection
   if (gameState.lastSelected != null) {
-    disableButtonsOnly();
+    // mark selected & disable
+    const buttons = [...document.querySelectorAll('#optionsContainer button')];
+    buttons.forEach(b=>{
+      if(b.dataset.key === gameState.lastSelected){
+        b.classList.add('option-selected');
+      }
+      b.disabled = true;
+      b.classList.add('opacity-50','cursor-not-allowed');
+    });
     const locked = document.getElementById('answerLockedMsg');
     if (locked) locked.textContent = 'Answer locked. Waiting for reveal…';
   }
@@ -634,18 +662,27 @@ function disableButtonsOnly(){
 function revealCorrectThenPause(correctKey, selectedKey){
   const buttons=[...document.querySelectorAll('#optionsContainer button')];
   if(!buttons.length) return;
+  // lock all
   buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-50','cursor-not-allowed'); });
 
   buttons.forEach(btn=>{
     const key=btn.dataset.key;
+    // clear selection color classes (but keep 'option-selected' if it was selected so user sees their pick)
     btn.classList.remove('from-amber-400','to-amber-600','from-red-400','to-red-600','from-green-400','to-green-600');
 
     if(key===correctKey){
+      // highlight correct answer green
       btn.classList.add('from-green-400','to-green-600');
       btn.classList.remove('opacity-50','cursor-not-allowed');
+      // if participant selected it, also play confetti (handled by caller)
     } else if(selectedKey && key===selectedKey && selectedKey!==correctKey){
-      btn.classList.add('from-red-400','to-red-600');
+      // keep participant's selection visible as blue (already had option-selected)
+      // also add a subtle red outline to indicate it was incorrect (optional)
+      btn.classList.add('ring-2','ring-red-400');
+      // leave option-selected so it remains dark-blue
+      btn.classList.remove('opacity-50','cursor-not-allowed');
     } else {
+      // others dimmed amber
       btn.classList.add('from-amber-400','to-amber-600');
     }
   });
@@ -675,7 +712,7 @@ function startOrSyncTimer(){
 }
 
 /* ===================== ANSWER SUBMIT ===================== */
-async function submitAnswer(answer){
+async function submitAnswer(answer, clickedButton){
   const q=gameState.currentQuestion;
   if(!q||!gameState.currentUser) return;
   if(Date.now()>=q.endsAt){ endQuestion(); return; }
@@ -683,24 +720,48 @@ async function submitAnswer(answer){
   const timeTaken=now-q.startTime;
   const isCorrect=(answer===q.correct);
 
+  // mark last selected and visually show selected immediately (dark blue)
   gameState.lastSelected = answer;
-  disableButtonsOnly();
+
+  // visually mark selected on the clicked button, and remove from others
+  const buttons = [...document.querySelectorAll('#optionsContainer button')];
+  buttons.forEach(b=>{
+    if(b === clickedButton){
+      b.classList.add('option-selected');
+    } else {
+      b.classList.remove('option-selected');
+    }
+    // disable all immediately (cannot change)
+    b.disabled = true;
+    b.classList.add('opacity-50','cursor-not-allowed');
+  });
+
   const locked = document.getElementById('answerLockedMsg');
   if (locked) locked.textContent = 'Answer locked. Waiting for reveal…';
 
+  // send the answer record to DB
   const { error } = await sb.from('answers').insert({
     question_id:q.id, username:gameState.currentUser, answer, time_ms:timeTaken, is_correct:isCorrect
   });
   if(error){ console.warn('submitAnswer error', error); return; }
-  if(isCorrect) confettiBurst();
+  // DO NOT play confetti here — confetti will be shown when the question ends and the reveal happens
 }
 
 /* ===================== END QUESTION (reveal, then clear) ===================== */
 async function endQuestion(){
   const q = gameState.currentQuestion;
   if(!q){ clearInterval(gameState.questionTimer); gameState.questionTimer=null; return; }
+  // show correct answer, and keep participant selected visible
   revealCorrectThenPause(q.correct, gameState.lastSelected);
 
+  // If participant had the correct answer, show confetti at reveal time
+  const selectedIsCorrect = (gameState.lastSelected && gameState.lastSelected === q.correct);
+  if(selectedIsCorrect){
+    // small delay to let UI show the correct highlight, then confetti
+    setTimeout(()=>confettiBurst(), 250);
+  }
+
+  // after 1.5s hide question area and prepare for next one
   setTimeout(()=>{
     gameState.currentQuestion=null;
     gameState.lastSelected=null;
@@ -1230,7 +1291,8 @@ async function runNextInQueue(setName){
     return;
   }
   gameState.setRunner.cursor++;
-  const delay = (item.timer||30)*1000 + 500 + 1600;
+  // shorten admin-side inter-question delay so next question appears near participant reveal (1.5s)
+  const delay = (item.timer||30)*1000 + 1500;
   gameState.setRunner.timerId = setTimeout(()=>runNextInQueue(setName), delay);
 }
 
@@ -1261,29 +1323,18 @@ async function resetGame(){
 
 /* ===================== PHOTO SHARING ===================== */
 
-/* ---------- SMALL WRAPPER ADDED HERE (fixes missing onchange handler) ---------- */
-/* The admin checkbox in markup calls onAdminTogglePhotoShare(this.checked).
-   This wrapper reads the selected duration and forwards to adminSetPhotoShareAllowed,
-   which already exists in your script below. */
+/* small wrapper to satisfy checkbox onchange (kept for backwards compatibility) */
 function onAdminTogglePhotoShare(checked) {
   const minutes = parseInt(document.getElementById('photoDuration')?.value || '0', 10);
   if (typeof adminSetPhotoShareAllowed === 'function') {
     adminSetPhotoShareAllowed(!!checked, minutes);
   } else {
-    // fallback safety: update local UI state
-    console.warn('adminSetPhotoShareAllowed not defined; updating local state only');
     gameState.photoShareAllowed = !!checked;
     gameState.photoShareExpiresAt = (checked && minutes > 0) ? (Date.now() + minutes*60*1000) : null;
     applyPhotoShareVisibility();
     renderPhotoCountdown();
     saveState();
   }
-}
-/* ------------------------------------------------------------------------------ */
-
-async function onAdminTogglePhotoShare(checked){
-  const minutes = parseInt(document.getElementById('photoDuration').value || '0', 10);
-  await adminSetPhotoShareAllowed(checked, minutes);
 }
 async function adminSetPhotoShareAllowed(allowed, minutes=0){
   try{
