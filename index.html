@@ -365,7 +365,8 @@ function saveState(){
     prevRanks:gameState.prevRanks,
     photoShareAllowed:gameState.photoShareAllowed,
     photoShareExpiresAt:gameState.photoShareExpiresAt,
-    currentRunId:gameState.setRunner.runId || null
+    currentRunId:gameState.setRunner.runId || null,
+    lastSelected: gameState.lastSelected || null
   }));
 }
 function loadState(){
@@ -378,7 +379,8 @@ function loadState(){
     gameState.prevRanks=s.prevRanks||{};
     gameState.photoShareAllowed=!!s.photoShareAllowed;
     gameState.photoShareExpiresAt = s.photoShareExpiresAt ?? null;
-    if (s.currentRunId) gameState.setRunner.runId = s.currentRunId;
+    gameState.setRunner.runId = s.currentRunId || null;
+    gameState.lastSelected = s.lastSelected || null;
   }catch{}
 }
 function initializeParticipants(){
@@ -396,6 +398,17 @@ const isDirectImageUrl = (u) => {
 };
 const escapeHtml = s => (s||'').replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[m]));
 function makeRunId(){ return (crypto?.randomUUID?.() || ('run_'+Math.random().toString(36).slice(2)+'_'+Date.now())); }
+
+function markSelectedButton(key){
+  // Add immediate selected (blue) styling to the chosen option
+  const btn = document.querySelector(`#optionsContainer button[data-key="${key}"]`);
+  if(!btn) return;
+  // remove any previous selected
+  [...document.querySelectorAll('#optionsContainer button')].forEach(b=>{
+    b.classList.remove('ring-2','ring-blue-500','bg-blue-600');
+  });
+  btn.classList.add('ring-2','ring-blue-500','bg-blue-600');
+}
 
 /* ========== Realtime & soft refresh ========== */
 let arenaHub = null;          
@@ -541,10 +554,12 @@ function logout(){
 
 /* ===================== ACTIVE QUESTION ===================== */
 async function fetchActiveQuestion(){
+  // show any currently active question where start_time <= now < ends_at
+  const nowISO = new Date().toISOString();
   const { data, error } = await sb.from('questions')
     .select('*')
-    .eq('ended', false)
-    .gt('ends_at', new Date().toISOString())
+    .lte('start_time', nowISO)
+    .gt('ends_at', nowISO)
     .order('start_time', { ascending: false })
     .limit(1);
   if(error){ console.error('fetchActiveQuestion error', error); return; }
@@ -556,9 +571,14 @@ function setCurrentQuestion(q){
     id:q.id, text:q.text, options:q.options, correct:q.correct,
     timer:q.timer, points:q.points||100, image_url:q.image_url||null,
     startTime:new Date(q.start_time).getTime(),
-    endsAt:new Date(q.ends_at).getTime()
+    endsAt:new Date(q.ends_at).getTime(),
+    isLast: !!q.is_last,
+    runId: q.run_id || null
   };
-  gameState.lastSelected = null;
+  // preserve lastSelected only for the same question
+  // if it's a new question, reset lastSelected
+  const prevQid = gameState.currentQuestion && gameState.currentQuestion.id;
+  if(!prevQid || prevQid !== q.id) gameState.lastSelected = null;
 
   if (q.run_id) { gameState.setRunner.runId = q.run_id; saveState(); }
   if(gameState.userType==='participant') displayQuestionToParticipants();
@@ -609,7 +629,9 @@ function displayQuestionToParticipants(){
     optionsContainer.appendChild(btn);
   });
 
+  // if participant had previously selected for this question, show selection and lock UI
   if (gameState.lastSelected != null) {
+    markSelectedButton(gameState.lastSelected);
     disableButtonsOnly();
     const locked = document.getElementById('answerLockedMsg');
     if (locked) locked.textContent = 'Answer locked. Waiting for reveal…';
@@ -629,24 +651,39 @@ function confettiBurst(){
 
 function disableButtonsOnly(){
   const buttons=[...document.querySelectorAll('#optionsContainer button')];
-  buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-50','cursor-not-allowed'); });
+  buttons.forEach(b=>{
+    b.disabled=true;
+    b.classList.add('opacity-70','cursor-not-allowed');
+  });
+  // if there is a selected option, visually keep it selected (blue)
+  if (gameState.lastSelected) {
+    const selectedBtn = document.querySelector(`#optionsContainer button[data-key="${gameState.lastSelected}"]`);
+    if (selectedBtn) {
+      selectedBtn.classList.add('ring-2','ring-blue-500','bg-blue-600');
+    }
+  }
 }
 function revealCorrectThenPause(correctKey, selectedKey){
   const buttons=[...document.querySelectorAll('#optionsContainer button')];
   if(!buttons.length) return;
-  buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-50','cursor-not-allowed'); });
+  buttons.forEach(b=>{ b.disabled=true; b.classList.add('opacity-70','cursor-not-allowed'); });
 
   buttons.forEach(btn=>{
     const key=btn.dataset.key;
-    btn.classList.remove('from-amber-400','to-amber-600','from-red-400','to-red-600','from-green-400','to-green-600');
+    // clear earlier gradients/styling
+    btn.classList.remove('from-amber-400','to-amber-600','from-red-400','to-red-600','from-green-400','to-green-600','ring-2','ring-blue-500','bg-blue-600','opacity-70','cursor-not-allowed');
 
     if(key===correctKey){
-      btn.classList.add('from-green-400','to-green-600');
-      btn.classList.remove('opacity-50','cursor-not-allowed');
+      // correct green
+      btn.classList.add('from-green-400','to-green-600','bg-gradient-to-r');
+      btn.classList.remove('opacity-70','cursor-not-allowed');
+      btn.disabled=false; // allow click prevention visually kept but maybe re-enable for accessibility
     } else if(selectedKey && key===selectedKey && selectedKey!==correctKey){
-      btn.classList.add('from-red-400','to-red-600');
+      // wrong selected red
+      btn.classList.add('from-red-400','to-red-600','bg-gradient-to-r');
     } else {
-      btn.classList.add('from-amber-400','to-amber-600');
+      // neutral rest
+      btn.classList.add('from-amber-400','to-amber-600','bg-gradient-to-r');
     }
   });
 }
@@ -683,7 +720,9 @@ async function submitAnswer(answer){
   const timeTaken=now-q.startTime;
   const isCorrect=(answer===q.correct);
 
+  // mark selection visually immediately
   gameState.lastSelected = answer;
+  markSelectedButton(answer);
   disableButtonsOnly();
   const locked = document.getElementById('answerLockedMsg');
   if (locked) locked.textContent = 'Answer locked. Waiting for reveal…';
@@ -692,14 +731,25 @@ async function submitAnswer(answer){
     question_id:q.id, username:gameState.currentUser, answer, time_ms:timeTaken, is_correct:isCorrect
   });
   if(error){ console.warn('submitAnswer error', error); return; }
-  if(isCorrect) confettiBurst();
+
+  saveState();
+  // do NOT trigger confetti here — confetti only shown at end of set if last question and correct
 }
 
 /* ===================== END QUESTION (reveal, then clear) ===================== */
 async function endQuestion(){
   const q = gameState.currentQuestion;
   if(!q){ clearInterval(gameState.questionTimer); gameState.questionTimer=null; return; }
+  // reveal the correct/wrong styling
   revealCorrectThenPause(q.correct, gameState.lastSelected);
+
+  // If this question is marked as last in the run and participant selected the correct answer => show confetti
+  try {
+    if (q.isLast && gameState.lastSelected && gameState.lastSelected === q.correct) {
+      // small delay to let reveal show, then confetti
+      setTimeout(()=>confettiBurst(), 600);
+    }
+  } catch(e){ console.warn('confetti decision failed', e); }
 
   setTimeout(()=>{
     gameState.currentQuestion=null;
@@ -709,6 +759,7 @@ async function endQuestion(){
     if(qa) qa.classList.add('hidden');
     if(wa) wa.classList.remove('hidden');
     updateCurrentQuestionStatus();
+    saveState();
   }, 1500);
 
   clearInterval(gameState.questionTimer);
@@ -865,7 +916,7 @@ async function updateFastestFinger(){
                 </span>
                 <span class="font-bold text-green-700">${(f.time_ms/1000).toFixed(1)}s</span>
               </div>`;
-    }).join('');
+    }).join(''); 
   }
 
   const statusEl=document.getElementById('currentQuestionStatus');
@@ -1209,6 +1260,7 @@ async function runNextInQueue(setName){
     console.warn('Image URL may not be a direct image (or data URL). Attempting to display anyway:', item.image_url);
   }
 
+  // mark is_last for last item so participants can know when to show confetti at end
   const payload = {
     text:item.text,
     options:{ A:item.A, B:item.B, C:item.C, D:item.D },
@@ -1220,7 +1272,8 @@ async function runNextInQueue(setName){
     ends_at:ends.toISOString(),
     ended:false,
     run_id: gameState.setRunner.runId || null,
-    set_name: setName || null
+    set_name: setName || null,
+    is_last: (i >= gameState.setRunner.queue.length - 1)  // <-- new flag
   };
   const { error } = await sb.from('questions').insert(payload);
   if(error){
@@ -1578,3 +1631,4 @@ function closeLeaderboardModal(){
 </script>
 </body>
 </html>
+
